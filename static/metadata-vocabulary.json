@@ -1,0 +1,41 @@
+{
+  "preference": {
+    "type": "single_select",
+    "values": [
+      { "id": "hard_avoid", "label": "Hard avoid", "routing": "reject" },
+      { "id": "avoid", "label": "Avoid", "routing": "strong_penalty" },
+      { "id": "like", "label": "Like", "routing": "bonus" },
+      { "id": "destination", "label": "Destination", "routing": "destination_bonus" }
+    ]
+  },
+  "route_flags": {
+    "type": "multi_select",
+    "values": [
+      { "id": "stile", "label": "Stile", "group": "problem", "routing": "reject_for_accessible" },
+      { "id": "muddy", "label": "Muddy", "group": "problem", "routing": "penalty" },
+      { "id": "steps", "label": "Steps", "group": "problem", "routing": "reject_for_accessible" },
+      { "id": "rough", "label": "Rough", "group": "problem", "routing": "penalty" },
+      { "id": "busy_road", "label": "Busy road", "group": "problem", "routing": "penalty" },
+      { "id": "no_access", "label": "No access", "group": "problem", "routing": "reject" },
+      { "id": "overgrown", "label": "Overgrown", "group": "problem", "routing": "seasonal_penalty" },
+      { "id": "shade", "label": "Shade", "group": "good", "routing": "shade_bonus" },
+      { "id": "sunny", "label": "Sunny", "group": "good", "routing": "sun_bonus" },
+      { "id": "scenic", "label": "Scenic", "group": "good", "routing": "bonus" },
+      { "id": "view", "label": "View", "group": "good", "routing": "bonus" },
+      { "id": "water", "label": "Water", "group": "good", "routing": "bonus" },
+      { "id": "woods", "label": "Woods", "group": "good", "routing": "bonus" },
+      { "id": "quiet", "label": "Quiet", "group": "good", "routing": "bonus" }
+    ]
+  },
+  "junction_place_type": {
+    "type": "single_select",
+    "values": [
+      { "id": "", "label": "None", "icon": "" },
+      { "id": "train_station", "label": "Train station", "icon": "lightrail" },
+      { "id": "bus_stop", "label": "Bus stop", "icon": "bus.fill" },
+      { "id": "manor_palace", "label": "Manor house / palace", "icon": "M" },
+      { "id": "viewpoint", "label": "Viewpoint", "icon": "V" },
+      { "id": "church", "label": "Church", "icon": "+" }
+    ]
+  }
+}

@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Build a reusable walking path network from GPX traces.">
+    <title>Route Atlas</title>
+    <link rel="preconnect" href="https://tile.openstreetmap.org">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v='18') }}">
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <header class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32">
+              <path d="M7 25c6-1 4-16 11-17 4-.6 4 7 8 7"/>
+              <circle cx="7" cy="25" r="3"/>
+              <circle cx="26" cy="15" r="3"/>
+            </svg>
+          </div>
+          <div>
+            <h1>Route Atlas</h1>
+          </div>
+        </header>
+
+        <nav class="mode-switcher" aria-label="Workspace mode">
+          <button class="mode-button" type="button" data-mode="edit" aria-pressed="false">Edit Network</button>
+          <button class="mode-button" type="button" data-mode="route" aria-pressed="true">Create Route</button>
+        </nav>
+
+        <section id="edit-home-section" class="edit-home-section" aria-labelledby="edit-home-heading" hidden>
+          <div class="section-heading">
+            <h2 id="edit-home-heading">Edit tools</h2>
+          </div>
+          <form id="upload-form">
+            <label class="drop-zone" id="drop-zone" for="file-input">
+              <input id="file-input" name="file" type="file" accept=".gpx,application/gpx+xml">
+              <span class="upload-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>
+                </svg>
+              </span>
+              <strong>Drop a GPX file here</strong>
+              <span>or click to browse</span>
+              <small>One GPX file · up to 10 MB</small>
+            </label>
+          </form>
+          <button id="panel-cleanup-area-button" class="secondary-button" type="button">
+            Clean area
+          </button>
+        </section>
+
+        <div id="message" class="message" role="status" hidden></div>
+
+        <section class="network-section" aria-labelledby="network-heading" hidden>
+          <div class="section-heading">
+            <h2 id="network-heading">Saved network</h2>
+          </div>
+          <div id="network-summary" class="network-summary">
+            <span class="network-swatch" aria-hidden="true"></span>
+            <span id="network-counts">Loading saved paths…</span>
+          </div>
+        </section>
+
+        <section id="selection-section" class="selection-section" hidden>
+          <div class="section-heading">
+            <h2>Selection</h2>
+            <button id="clear-selection-button" class="text-button" type="button">Clear</button>
+          </div>
+          <div class="selection-card">
+            <div class="selection-summary">
+              <strong id="selection-name"></strong>
+              <span id="selection-details"></span>
+            </div>
+            <div id="active-tool-panel" class="active-tool-panel" hidden>
+              <span id="active-tool-name"></span>
+              <small id="active-tool-instruction"></small>
+            </div>
+            <div id="path-action-group" class="selection-action-group" hidden>
+              <button id="split-mode-button" class="secondary-button" type="button">
+                Add junction
+              </button>
+              <button id="trace-insert-button" class="secondary-button" type="button">
+                Insert trace point
+              </button>
+              <button id="delete-segment-button" class="danger-button" type="button">
+                Delete
+              </button>
+            </div>
+            <div id="trace-edit-panel" class="trace-edit-panel" hidden>
+              <div class="trace-edit-actions">
+                <button id="trace-move-button" class="secondary-button" type="button">Move point</button>
+                <button id="trace-delete-button" class="danger-button" type="button">Delete point</button>
+              </div>
+            </div>
+            <div id="junction-action-group" class="selection-action-group" hidden>
+              <button id="new-segment-button" class="secondary-button" type="button">
+                Create new path
+              </button>
+              <button id="complete-new-segment-button" class="secondary-button" type="button">
+                Complete path segment
+              </button>
+              <button id="move-junction-button" class="secondary-button" type="button">
+                Move
+              </button>
+              <button id="merge-junction-button" class="danger-button" type="button">
+                Delete and merge
+              </button>
+            </div>
+            <button id="clean-junction-button" class="secondary-button legacy-action" type="button" hidden>
+              Clean around junction
+            </button>
+            <button id="duplicate-cleanup-button" class="secondary-button legacy-action" type="button" hidden>
+              Compare duplicate
+            </button>
+            <button id="merge-junctions-button" class="secondary-button legacy-action" type="button" hidden>
+              Merge into junction
+            </button>
+            <div id="metadata-panel" class="metadata-panel" hidden>
+              <div class="metadata-panel-heading">Metadata</div>
+              <div id="path-metadata-fields" class="path-metadata-fields">
+                <label class="metadata-field">
+                  <span>Preference</span>
+                  <select id="metadata-preference"></select>
+                </label>
+                <div class="metadata-field">
+                  <span>Route flags</span>
+                  <div id="metadata-flags" class="metadata-flags"></div>
+                </div>
+                <label class="metadata-field">
+                  <span>Notes</span>
+                  <textarea id="metadata-notes" rows="3"></textarea>
+                </label>
+              </div>
+              <div id="junction-metadata-fields" class="junction-metadata-fields" hidden>
+                <label class="metadata-field">
+                  <span>Place type</span>
+                  <select id="junction-place-type"></select>
+                </label>
+                <label class="metadata-field">
+                  <span>Name</span>
+                  <input id="junction-name" type="text" autocomplete="off">
+                </label>
+                <label class="metadata-field">
+                  <span>Notes</span>
+                  <textarea id="junction-notes" rows="3"></textarea>
+                </label>
+                <label class="metadata-toggle">
+                  <input id="junction-protected" type="checkbox">
+                  <span>
+                    <strong>Protected</strong>
+                    <small>Skip this junction during cleanup and automatic merges.</small>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <div id="junction-leg-panel" class="junction-leg-panel" hidden>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Leg</th>
+                    <th>Distance</th>
+                    <th>State</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="junction-leg-list"></tbody>
+              </table>
+            </div>
+            <small id="split-mode-note"></small>
+          </div>
+        </section>
+
+        <section id="route-draft-section" class="route-draft-section" aria-labelledby="route-draft-heading">
+          <div class="section-heading">
+            <h2 id="route-draft-heading">Draft route</h2>
+          </div>
+          <div class="route-draft-card">
+            <div class="route-draft-stats">
+              <strong id="route-draft-length">0 m</strong>
+              <span id="route-draft-status">No route segments selected.</span>
+            </div>
+            <ol id="route-draft-list" class="route-draft-list"></ol>
+          </div>
+          <div class="route-draft-actions">
+            <button id="undo-route-segment-button" class="secondary-button" type="button" disabled>
+              Undo segment
+            </button>
+            <button id="clear-route-button" class="secondary-button" type="button" disabled>
+              Reset route
+            </button>
+            <button id="export-route-gpx-button" class="secondary-button" type="button" disabled>
+              Export GPX
+            </button>
+          </div>
+        </section>
+
+        <section id="session-section" class="routes-section" aria-labelledby="session-heading" hidden>
+          <div class="section-heading">
+            <h2 id="session-heading">Edit session</h2>
+            <span id="session-revision" class="session-revision"></span>
+          </div>
+          <div id="session-empty-state" class="empty-state">
+            <span>No staged changes.</span>
+            <small>Upload one GPX file to add an import operation.</small>
+          </div>
+          <div id="session-summary" class="draft-summary" hidden>
+            <div class="draft-heading-row">
+              <span class="draft-swatch" aria-hidden="true"></span>
+              <strong id="operation-name"></strong>
+            </div>
+            <span id="change-counts"></span>
+            <span id="operation-stats"></span>
+            <span id="duplicate-summary" hidden></span>
+            <div id="overlap-summary" class="overlap-summary" hidden></div>
+            <div id="overlap-review-list" class="overlap-review-list"></div>
+            <ol id="operation-list" class="operation-list"></ol>
+          </div>
+          <div class="session-controls">
+            <button id="undo-button" class="secondary-button" type="button" disabled>Undo</button>
+            <button id="save-button" class="primary-button" type="button" disabled>Save changes</button>
+            <button id="cancel-session-button" class="secondary-button" type="button">Cancel</button>
+          </div>
+          <small id="save-note" class="save-note">Save applies the complete staged change set.</small>
+        </section>
+
+        <section class="legend-section" aria-labelledby="legend-heading" hidden>
+          <div class="section-heading">
+            <h2 id="legend-heading">Map legend</h2>
+          </div>
+          <div class="legend">
+            <span class="legend-line saved"></span><span>Saved</span>
+            <span class="legend-line added"></span><span>Added</span>
+            <span class="legend-line replaced"></span><span>Deleted or replaced</span>
+          </div>
+        </section>
+
+        <footer>
+          <span>Map data © OpenStreetMap contributors</span>
+        </footer>
+      </aside>
+
+      <section class="map-panel" aria-label="Walking path network map">
+        <div id="map"></div>
+        <div class="map-overlay">
+          <span class="status-dot"></span>
+          <span id="map-status">Waiting for paths</span>
+        </div>
+        <button id="fit-button" class="map-button" type="button" title="Fit all paths" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 3H3v5M16 3h5v5M8 21H3v-5m13 5h5v-5"/>
+          </svg>
+          Fit paths
+        </button>
+        <button id="cleanup-area-button" class="map-button cleanup-area-button" type="button" title="Clean up duplicate paths in an area" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 5h16v14H4zM8 9h8M8 13h8"/>
+          </svg>
+          Clean up area
+        </button>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='app.js', v='35') }}"></script>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>London Bus Map Editor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bus.css') }}">
+</head>
+<body>
+  <div id="login-screen" class="login-screen" {% if authenticated %}hidden{% endif %}>
+    <form id="login-form" class="login-card"><h1>Bus Map Editor</h1><label class="field"><span>Password</span><input id="password" type="password" required autofocus></label><button>Sign in</button><p id="login-error" class="error"></p></form>
+  </div>
+  <main id="editor-shell" class="bus-shell" {% if not authenticated %}hidden{% endif %}>
+    <aside class="bus-sidebar editor-sidebar">
+      <header><span class="roundel">EDIT</span><div><h1>Bus Map Editor</h1><p>Routes and shared segments</p></div></header>
+      <div id="editor-message" class="message" hidden></div>
+      <section class="card"><h2>Create route</h2><form id="route-form"><label class="field"><span>Route code</span><input id="route-code" maxlength="20" required></label><label class="field"><span>Colour</span><input id="route-colour" type="color" value="#e32017"></label><button>Create route</button></form></section>
+      <section class="card"><h2>Active route direction</h2><label class="field"><span>Route</span><select id="route-select"></select></label><label class="field"><span>Direction</span><select id="direction-select"></select></label><button id="new-direction" type="button">Create undefined direction</button><button id="set-endpoints" class="quiet" type="button">Set direction endpoints</button><p class="hint">Select a direction, then click segments to add or remove membership.</p></section>
+      <section class="card"><h2>Draw route</h2><button id="draw-route" type="button">Start drawing</button><p id="draw-status" class="hint">Start at any map point or node. Click for shape points.</p><div class="row"><button id="finish-drawing" class="quiet" type="button" disabled>Finish at new node</button><button id="cancel-drawing" class="quiet" type="button" disabled>Cancel segment</button></div></section>
+      <section id="segment-card" class="card" hidden><h2>Selected segment</h2><div id="segment-detail"></div><label class="field"><span>Route traversal</span><select id="traversal"><option value="both">Both</option><option value="start_to_end">Start → end</option><option value="end_to_start">End → start</option></select></label><label class="field"><span>Physical direction</span><select id="segment-direction"><option value="bidirectional">Bidirectional</option><option value="start_to_end">Start → end only</option><option value="end_to_start">End → start only</option></select></label><button id="set-segment-direction" class="quiet" type="button">Set physical direction</button></section>
+      <section class="card"><h2>Edit session</h2><p id="session-summary" class="hint">No staged changes.</p><div class="row"><button id="undo" class="quiet" type="button">Undo</button><button id="save" type="button">Save</button></div><button id="cancel" class="quiet" type="button">Cancel changes</button></section>
+      <div class="row"><a class="editor-link" href="/">Public viewer</a><button id="logout" class="quiet">Sign out</button></div>
+    </aside>
+    <div id="map" class="bus-map" data-tile-url="{{ tile_url }}" data-attribution="{{ tile_attribution }}" data-max-zoom="{{ tile_max_zoom }}"></div>
+  </main>
+  <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+  <script src="{{ url_for('static', filename='bus-editor.js') }}"></script>
+</body>
+</html>

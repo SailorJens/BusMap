@@ -1,0 +1,160 @@
+{
+  "cases": [
+    {
+      "name": "same path with gps noise",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west",
+          "endJunctionId": "east",
+          "geometry": [[13.0, 52.0], [13.001, 52.0], [13.002, 52.0]]
+        }
+      ],
+      "uploadedSections": [
+        [[13.0, 52.000012], [13.0007, 51.999986], [13.0014, 52.000018], [13.002, 52.000006]]
+      ],
+      "expected": {"candidate": true, "confidence": "high"}
+    },
+    {
+      "name": "same path in reverse",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west",
+          "endJunctionId": "east",
+          "geometry": [[13.0, 52.0], [13.001, 52.0], [13.002, 52.0]]
+        }
+      ],
+      "uploadedSections": [
+        [[13.002, 52.00001], [13.0012, 51.99999], [13.0004, 52.000015], [13.0, 52.0]]
+      ],
+      "expected": {"candidate": true, "confidence": "high"}
+    },
+    {
+      "name": "sparse trace against dense saved geometry",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west",
+          "endJunctionId": "east",
+          "geometry": [[13.0, 52.0], [13.0004, 52.0001], [13.0008, 52.00015], [13.0012, 52.0001], [13.0016, 52.0], [13.002, 51.99995]]
+        }
+      ],
+      "uploadedSections": [
+        [[13.0, 52.00001], [13.002, 51.99996]]
+      ],
+      "expected": {"candidate": true}
+    },
+    {
+      "name": "partial shared path with branch",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west",
+          "endJunctionId": "east",
+          "geometry": [[13.0, 52.0], [13.001, 52.0], [13.002, 52.0]]
+        }
+      ],
+      "uploadedSections": [
+        [[13.0, 52.00001], [13.0008, 51.99999], [13.00135, 52.0], [13.00165, 52.00035], [13.002, 52.0008]]
+      ],
+      "expected": {"candidate": true, "endBoundary": "branch"}
+    },
+    {
+      "name": "new path joins shared corridor",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west",
+          "endJunctionId": "east",
+          "geometry": [[13.0, 52.0], [13.001, 52.0], [13.002, 52.0]]
+        }
+      ],
+      "uploadedSections": [
+        [[12.9996, 51.9993], [12.9999, 51.9998], [13.00035, 52.0], [13.0012, 52.00001], [13.002, 52.0]]
+      ],
+      "expected": {"candidate": true, "startBoundary": "join"}
+    },
+    {
+      "name": "perpendicular crossing",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west",
+          "endJunctionId": "east",
+          "geometry": [[13.0, 52.0], [13.002, 52.0]]
+        }
+      ],
+      "uploadedSections": [
+        [[13.001, 51.999], [13.001, 52.001]]
+      ],
+      "expected": {"candidate": false}
+    },
+    {
+      "name": "opposite sidewalk",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west",
+          "endJunctionId": "east",
+          "geometry": [[13.0, 52.0], [13.002, 52.0]]
+        }
+      ],
+      "uploadedSections": [
+        [[13.0, 52.000075], [13.001, 52.000075], [13.002, 52.000075]]
+      ],
+      "expected": {"candidate": true, "confidenceNot": "high"}
+    },
+    {
+      "name": "two ambiguous parallel saved paths",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west-1",
+          "endJunctionId": "east-1",
+          "geometry": [[13.0, 52.0], [13.002, 52.0]]
+        },
+        {
+          "id": "saved-2",
+          "startJunctionId": "west-2",
+          "endJunctionId": "east-2",
+          "geometry": [[13.0, 52.00006], [13.002, 52.00006]]
+        }
+      ],
+      "uploadedSections": [
+        [[13.0, 52.00003], [13.001, 52.00003], [13.002, 52.00003]]
+      ],
+      "expected": {"candidate": true, "confidenceNot": "high"}
+    },
+    {
+      "name": "brief divergence and return",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west",
+          "endJunctionId": "east",
+          "geometry": [[13.0, 52.0], [13.001, 52.0], [13.002, 52.0], [13.003, 52.0]]
+        }
+      ],
+      "uploadedSections": [
+        [[13.0, 52.0], [13.001, 52.0], [13.0014, 52.00011], [13.0018, 52.0], [13.003, 52.0]]
+      ],
+      "expected": {"candidate": true, "endBoundaryNot": "branch"}
+    },
+    {
+      "name": "disjoint geometry",
+      "savedPathSegments": [
+        {
+          "id": "saved-1",
+          "startJunctionId": "west",
+          "endJunctionId": "east",
+          "geometry": [[13.0, 52.0], [13.002, 52.0]]
+        }
+      ],
+      "uploadedSections": [
+        [[13.0, 52.002], [13.002, 52.002]]
+      ],
+      "expected": {"candidate": false}
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+.DS
+.DS_Store
+.venv
+__pycache__
+.pytest_cache
+/data
+/weights
+/runs
+/instance
+yolo26n.pt
+yolo26n-seg.pt

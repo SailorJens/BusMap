@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Morning Ride</name></metadata>
+  <trk>
+    <trkseg>
+      <trkpt lat="52.5200" lon="13.4050"><ele>30</ele></trkpt>
+      <trkpt lat="52.5210" lon="13.4100"><ele>42</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

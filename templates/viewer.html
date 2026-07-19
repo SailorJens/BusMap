@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>London Bus Map</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bus.css') }}">
+</head>
+<body>
+  <main class="bus-shell">
+    <aside class="bus-sidebar">
+      <header><span class="roundel">BUS</span><div><h1>London Bus Map</h1><p>Shared route network</p></div></header>
+      <label class="field"><span>Find a route</span><input id="route-search" type="search" placeholder="73, 159, N73…"></label>
+      <div id="route-list" class="route-list" aria-live="polite"></div>
+      <label id="direction-field" class="field" hidden><span>Direction</span><select id="direction-filter"></select></label>
+      <section id="selection" class="card" hidden><h2 id="selection-title"></h2><div id="selection-detail"></div><button id="clear-selection">Clear selection</button></section>
+      <a class="editor-link" href="/editor">Open editor</a>
+    </aside>
+    <div id="map" class="bus-map" data-tile-url="{{ tile_url }}" data-attribution="{{ tile_attribution }}" data-max-zoom="{{ tile_max_zoom }}"></div>
+  </main>
+  <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+  <script src="{{ url_for('static', filename='bus-viewer.js') }}"></script>
+</body>
+</html>
