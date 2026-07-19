@@ -36,11 +36,8 @@ AREA_DUPLICATE_MAX_LENGTH_RATIO = 1.35
 AREA_STUB_MAX_DISTANCE_METRES = 35
 JUNCTION_PLACE_TYPES = {
     "",
-    "train_station",
-    "bus_stop",
-    "manor_palace",
-    "viewpoint",
-    "church",
+    "end_of_route",
+    "route_terminus",
 }
 
 
@@ -1414,6 +1411,8 @@ def _derive_orphan_junctions(
     for junction in list(junctions):
         if junction["id"] in active_junction_ids:
             continue
+        if junction.get("preserveOrphan"):
+            continue
         if _junction_is_protected(junction):
             continue
         if junction["state"] == "added":
@@ -1534,6 +1533,11 @@ def _derive(session: dict[str, Any]) -> dict[str, Any]:
             path_segments.append(replacement)
         elif operation["type"] == "edit_junction_metadata":
             _apply_edit_junction_metadata_operation(junctions, operation)
+        elif operation["type"] == "add_junction":
+            junction = _created_junction(operation["junctionId"], operation["coordinate"])
+            junction["origin"] = "manual_create"
+            junction["preserveOrphan"] = True
+            junctions.append(junction)
         elif operation["type"] == "create_path_segment":
             _apply_create_path_segment_operation(junctions, path_segments, operation)
         elif operation["type"] == "merge_at_junction":
@@ -1649,6 +1653,7 @@ def _derive(session: dict[str, Any]) -> dict[str, Any]:
         "edit_path_metadata": "Edit path metadata",
         "set_segment_direction": "Set segment direction",
         "edit_junction_metadata": "Edit junction metadata",
+        "add_junction": "Add junction",
         "merge_at_junction": "Remove junction and merge",
         "move_junction": "Move junction",
         "merge_junctions": "Merge junctions",
@@ -1737,6 +1742,33 @@ def create_edit_session(app: Flask) -> dict[str, Any]:
 
 def get_edit_session(app: Flask, token: str) -> dict[str, Any]:
     return _derive(_session(app, token))
+
+
+def add_junction(
+    app: Flask,
+    token: str,
+    longitude: Any,
+    latitude: Any,
+) -> dict[str, Any]:
+    session = _session(app, token)
+    coordinate = _normalize_coordinate(
+        [longitude, latitude],
+        "The new junction contains an invalid coordinate.",
+    )
+    operation_id = uuid4().hex
+    operation = {
+        "type": "add_junction",
+        "junctionId": f"created-junction-{operation_id}",
+        "coordinate": coordinate,
+    }
+    session["operations"].append(operation)
+    try:
+        result = _derive(session)
+    except Exception:
+        session["operations"].pop()
+        raise
+    result["createdJunction"] = {"junctionId": operation["junctionId"]}
+    return result
 
 
 def import_trace(
@@ -2397,6 +2429,8 @@ def edit_junction_metadata(
     normalized_metadata = deepcopy(junction.get("metadata") or {})
     normalized_metadata["protected"] = protected
     normalized_metadata["place_type"] = place_type
+    if place_type in {"end_of_route", "route_terminus"}:
+        normalized_metadata["protected"] = True
     normalized_metadata["name"] = name.strip()
     normalized_metadata["notes"] = notes.strip()
 

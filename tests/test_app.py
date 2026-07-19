@@ -57,10 +57,11 @@ def test_home_page(client):
 def test_editor_page(client):
     response = client.get("/editor")
     assert response.status_code == 200
-    assert b"Bus Map Editor" in response.data
-    assert b"Create route" in response.data
-    assert b"Build route from segments" in response.data
-    assert b"Draw standalone segments" in response.data
+    assert b"London Bus Map" in response.data
+    assert b"Edit Network" in response.data
+    assert b"Build Route" in response.data
+    assert b"Move point" in response.data
+    assert b'id="bus-route-code"' in response.data
     assert b"unpkg.com" not in response.data
 
 
@@ -193,7 +194,7 @@ def test_mode_shell_controls_visible_workflows(client):
     response = client.get("/static/app.js")
 
     assert response.status_code == 200
-    assert b'let activeMode = "route"' in response.data
+    assert b'let activeMode = "edit"' in response.data
     assert b"const modeButtons" in response.data
     assert b"function setActiveMode(mode)" in response.data
     assert b'const showEditHome = activeMode === "edit" && !selected && !hasChanges' in response.data
@@ -289,16 +290,9 @@ def test_metadata_vocabulary_static_file(client):
     route_flags = {item["id"] for item in vocabulary["route_flags"]["values"]}
     assert {"stile", "muddy", "sunny", "shade", "scenic"}.issubset(route_flags)
     place_types = {item["id"] for item in vocabulary["junction_place_type"]["values"]}
-    assert {
-        "train_station",
-        "bus_stop",
-        "manor_palace",
-        "viewpoint",
-        "church",
-    }.issubset(place_types)
+    assert place_types == {"", "route_terminus"}
     icons = {item["id"]: item["icon"] for item in vocabulary["junction_place_type"]["values"]}
-    assert icons["train_station"] == "lightrail"
-    assert icons["bus_stop"] == "bus.fill"
+    assert icons["route_terminus"] == "T"
 
 
 def test_junction_cleanup_uses_local_bounds(client):

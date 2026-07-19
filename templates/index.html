@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Build a reusable walking path network from GPX traces.">
-    <title>Route Atlas</title>
+    <meta name="description" content="Edit a reusable London bus path network and assign bus routes.">
+    <title>London Bus Map Editor</title>
     <link rel="preconnect" href="https://tile.openstreetmap.org">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v='18') }}">
@@ -21,20 +21,20 @@
             </svg>
           </div>
           <div>
-            <h1>Route Atlas</h1>
+            <h1>London Bus Map</h1>
           </div>
         </header>
 
         <nav class="mode-switcher" aria-label="Workspace mode">
-          <button class="mode-button" type="button" data-mode="edit" aria-pressed="false">Edit Network</button>
-          <button class="mode-button" type="button" data-mode="route" aria-pressed="true">Create Route</button>
+          <button class="mode-button" type="button" data-mode="edit" aria-pressed="true">Edit Network</button>
+          <button class="mode-button" type="button" data-mode="route" aria-pressed="false">Build Route</button>
         </nav>
 
         <section id="edit-home-section" class="edit-home-section" aria-labelledby="edit-home-heading" hidden>
           <div class="section-heading">
             <h2 id="edit-home-heading">Edit tools</h2>
           </div>
-          <form id="upload-form">
+          <form id="upload-form" hidden aria-hidden="true">
             <label class="drop-zone" id="drop-zone" for="file-input">
               <input id="file-input" name="file" type="file" accept=".gpx,application/gpx+xml">
               <span class="upload-icon" aria-hidden="true">
@@ -47,6 +47,9 @@
               <small>One GPX file · up to 10 MB</small>
             </label>
           </form>
+          <button id="add-junction-button" class="secondary-button" type="button">
+            Add Junction
+          </button>
           <button id="panel-cleanup-area-button" class="secondary-button" type="button">
             Clean area
           </button>
@@ -178,6 +181,26 @@
             <h2 id="route-draft-heading">Draft route</h2>
           </div>
           <div class="route-draft-card">
+            <label class="metadata-field">
+              <span>Choose existing route</span>
+              <select id="bus-route-picker">
+                <option value="">Create a new route…</option>
+              </select>
+            </label>
+            <label class="metadata-field">
+              <span>Bus route code</span>
+              <input id="bus-route-code" type="text" maxlength="20" placeholder="73, 159, N73" autocomplete="off" list="bus-route-codes">
+              <datalist id="bus-route-codes"></datalist>
+            </label>
+            <div id="bus-route-existence-status" class="active-tool-panel" hidden></div>
+            <label class="metadata-field">
+              <span>Route colour</span>
+              <input id="bus-route-colour" type="color" value="#e32017">
+            </label>
+            <label id="bus-route-direction-field" class="metadata-field" hidden>
+              <span>Existing route direction</span>
+              <select id="bus-route-direction"></select>
+            </label>
             <div class="route-draft-stats">
               <strong id="route-draft-length">0 m</strong>
               <span id="route-draft-status">No route segments selected.</span>
@@ -185,6 +208,9 @@
             <ol id="route-draft-list" class="route-draft-list"></ol>
           </div>
           <div class="route-draft-actions">
+            <button id="stage-bus-route-button" class="primary-button" type="button" disabled>
+              Add route to edit session
+            </button>
             <button id="undo-route-segment-button" class="secondary-button" type="button" disabled>
               Undo segment
             </button>
@@ -242,7 +268,7 @@
         </footer>
       </aside>
 
-      <section class="map-panel" aria-label="Walking path network map">
+      <section class="map-panel" aria-label="London bus path network map">
         <div id="map"></div>
         <div class="map-overlay">
           <span class="status-dot"></span>
@@ -260,10 +286,16 @@
           </svg>
           Clean up area
         </button>
+        <button id="finish-new-path-button" class="map-button finish-new-path-button" type="button" title="Finish this path at a new junction" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12l4 4L19 6"/>
+          </svg>
+          Save path at new junction
+        </button>
       </section>
     </main>
 
     <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
-    <script src="{{ url_for('static', filename='app.js', v='35') }}"></script>
+    <script src="{{ url_for('static', filename='app.js', v='43') }}"></script>
   </body>
 </html>

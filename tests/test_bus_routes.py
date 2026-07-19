@@ -264,3 +264,20 @@ def test_newly_finished_segment_persists_a_degree_one_endpoint(app, client):
     )
     assert endpoint_id.startswith("created-junction-")
     assert degree == 1
+
+
+def test_standalone_junction_can_be_added_selected_and_saved(app, client):
+    session = client.post("/api/edit-sessions").get_json()
+    response = client.post(
+        f"/api/edit-sessions/{session['token']}/junctions",
+        json={"longitude": -0.1278, "latitude": 51.5074},
+    )
+    assert response.status_code == 201
+    staged = response.get_json()
+    junction_id = staged["createdJunction"]["junctionId"]
+    assert any(node["id"] == junction_id and node["state"] == "added" for node in staged["network"]["junctions"])
+    committed = client.post(f"/api/edit-sessions/{session['token']}/commit")
+    assert committed.status_code == 200
+    nodes = committed.get_json()["network"]["junctions"]
+    assert len(nodes) == 1
+    assert nodes[0]["longitude"] == -0.1278

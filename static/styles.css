@@ -1112,6 +1112,18 @@ footer {
   bottom: 76px;
 }
 
+.finish-new-path-button {
+  bottom: 76px;
+  color: var(--white);
+  background: var(--green);
+  border-color: var(--green-dark);
+}
+
+.finish-new-path-button:hover {
+  color: var(--white);
+  background: var(--green-dark);
+}
+
 .cleanup-area-button.is-active {
   color: var(--white);
   background: var(--green);

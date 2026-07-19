@@ -551,7 +551,8 @@ def commit_staged_network(
                     junction,
                 )
                 junction_id_map[str(junction["id"])] = permanent_id
-                orphan_candidate_ids.add(permanent_id)
+                if not junction.get("preserveOrphan"):
+                    orphan_candidate_ids.add(permanent_id)
 
         existing_junction_ids = {
             row["id"]

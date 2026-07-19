@@ -38,11 +38,7 @@ let metadataVocabulary = {
   junction_place_type: {
     values: [
       { id: "", label: "None", icon: "" },
-      { id: "train_station", label: "Train station", icon: "lightrail" },
-      { id: "bus_stop", label: "Bus stop", icon: "bus.fill" },
-      { id: "manor_palace", label: "Manor house / palace", icon: "M" },
-      { id: "viewpoint", label: "Viewpoint", icon: "V" },
-      { id: "church", label: "Church", icon: "+" },
+      { id: "route_terminus", label: "Route Terminus", icon: "T" },
     ],
   },
 };
@@ -54,6 +50,7 @@ let selectedObject = null;
 let isSplitPlacement = false;
 let isJunctionMovePlacement = false;
 let isAreaCleanupPlacement = false;
+let isAddJunctionPlacement = false;
 let selectedTracePointIndex = null;
 let traceEditAction = null;
 let areaCleanupStartLatLng = null;
@@ -64,7 +61,7 @@ let overlapBoundaryPlacement = null;
 let duplicateCleanupSourceId = null;
 let newSegmentDraft = null;
 let routeDraftSteps = [];
-let activeMode = "route";
+let activeMode = "edit";
 
 const map = L.map("map", { zoomControl: false }).setView([51.1, 10.3], 6);
 L.control.zoom({ position: "topright" }).addTo(map);
@@ -105,7 +102,9 @@ const dropZone = document.querySelector("#drop-zone");
 const message = document.querySelector("#message");
 const fitButton = document.querySelector("#fit-button");
 const cleanupAreaButton = document.querySelector("#cleanup-area-button");
+const finishNewPathButton = document.querySelector("#finish-new-path-button");
 const panelCleanupAreaButton = document.querySelector("#panel-cleanup-area-button");
+const addJunctionButton = document.querySelector("#add-junction-button");
 const mapStatus = document.querySelector("#map-status");
 const mapOverlay = document.querySelector(".map-overlay");
 const networkCounts = document.querySelector("#network-counts");
@@ -134,6 +133,14 @@ const routeDraftLength = document.querySelector("#route-draft-length");
 const routeDraftStatus = document.querySelector("#route-draft-status");
 const routeDraftList = document.querySelector("#route-draft-list");
 const exportRouteGpxButton = document.querySelector("#export-route-gpx-button");
+const busRouteCode = document.querySelector("#bus-route-code");
+const busRoutePicker = document.querySelector("#bus-route-picker");
+const busRouteCodes = document.querySelector("#bus-route-codes");
+const busRouteExistenceStatus = document.querySelector("#bus-route-existence-status");
+const busRouteColour = document.querySelector("#bus-route-colour");
+const busRouteDirectionField = document.querySelector("#bus-route-direction-field");
+const busRouteDirection = document.querySelector("#bus-route-direction");
+const stageBusRouteButton = document.querySelector("#stage-bus-route-button");
 const selectionName = document.querySelector("#selection-name");
 const selectionDetails = document.querySelector("#selection-details");
 const pathActionGroup = document.querySelector("#path-action-group");
@@ -345,7 +352,8 @@ function renderJunctionMetadataForm(junction) {
   );
   junctionName.value = metadata.name || "";
   junctionNotes.value = metadata.notes || "";
-  junctionProtected.checked = Boolean(metadata.protected);
+  junctionProtected.checked = ["end_of_route", "route_terminus"].includes(placeType) || Boolean(metadata.protected);
+  junctionProtected.disabled = ["end_of_route", "route_terminus"].includes(placeType);
 }
 
 function renderMetadataForm(selected, type) {
@@ -412,6 +420,9 @@ function clearActiveToolState() {
   isSplitPlacement = false;
   isJunctionMovePlacement = false;
   isAreaCleanupPlacement = false;
+  isAddJunctionPlacement = false;
+  addJunctionButton.classList.remove("is-active-tool");
+  addJunctionButton.textContent = "Add Junction";
   traceEditAction = null;
   junctionMergeSourceId = null;
   overlapBoundaryPlacement = null;
@@ -421,6 +432,43 @@ function clearActiveToolState() {
   map.dragging.enable();
   renderSelectedTracePoints();
   renderNewSegmentDraft();
+}
+
+function toggleAddJunctionPlacement() {
+  if (!editSession || isSaving) return;
+  const activate = !isAddJunctionPlacement;
+  clearActiveToolState();
+  isAddJunctionPlacement = activate;
+  addJunctionButton.classList.toggle("is-active-tool", activate);
+  addJunctionButton.textContent = activate ? "Click map to add junction…" : "Add Junction";
+  if (activate) showMessage("Add Junction active. Click once on the map to place it.", "loading");
+  else hideMessage();
+}
+
+async function placeStandaloneJunction(latlng) {
+  if (!isAddJunctionPlacement || !editSession || isSaving) return;
+  showMessage("Adding junction…", "loading");
+  try {
+    const response = await fetch(`/api/edit-sessions/${editSession.token}/junctions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ longitude: latlng.lng, latitude: latlng.lat }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      showMessage(result.error || "The junction could not be added.");
+      return;
+    }
+    const junctionId = result.createdJunction?.junctionId;
+    isAddJunctionPlacement = false;
+    addJunctionButton.classList.remove("is-active-tool");
+    addJunctionButton.textContent = "Add Junction";
+    if (junctionId) selectedObject = { type: "junction", id: junctionId };
+    renderSession(result);
+    showMessage("Junction added and selected. Press N to draw a path from it.", "success");
+  } catch {
+    showMessage("Could not add the junction.");
+  }
 }
 
 function activeNetwork() {
@@ -603,6 +651,8 @@ function renderRouteDraft() {
   undoRouteSegmentButton.disabled = segments.length === 0;
   clearRouteButton.disabled = segments.length === 0;
   exportRouteGpxButton.disabled = segments.length === 0;
+  stageBusRouteButton.disabled = segments.length === 0 || !busRouteCode.value.trim();
+  renderBusRouteDirectionChoices();
   routeDraftList.replaceChildren(
     ...segments.map((segment, index) => {
       const item = document.createElement("li");
@@ -611,6 +661,89 @@ function renderRouteDraft() {
     })
   );
   renderRouteDraftLayer();
+}
+
+function existingBusRouteForCode() {
+  const code = busRouteCode.value.trim().toLowerCase();
+  return (editSession?.routes || []).find(
+    (route) => route.state !== "deleted" && route.routeCode.toLowerCase() === code
+  ) || null;
+}
+
+function renderBusRouteDirectionChoices() {
+  const availableRoutes = (editSession?.routes || []).filter((route) => route.state !== "deleted");
+  const selectedPickerValue = busRoutePicker.value;
+  const createOption = document.createElement("option");
+  createOption.value = "";
+  createOption.textContent = "Create a new route…";
+  busRoutePicker.replaceChildren(
+    createOption,
+    ...availableRoutes.map((route) => {
+      const option = document.createElement("option");
+      option.value = route.id;
+      option.textContent = `Route ${route.routeCode}${route.displayName ? ` · ${route.displayName}` : ""}`;
+      return option;
+    })
+  );
+  busRouteCodes.replaceChildren(
+    ...availableRoutes.map((route) => {
+      const option = document.createElement("option");
+      option.value = route.routeCode;
+      return option;
+    })
+  );
+  const route = existingBusRouteForCode();
+  const directions = route
+    ? (editSession?.routeDirections || []).filter(
+      (direction) => direction.state !== "deleted" && String(direction.busRouteId) === String(route.id)
+    )
+    : [];
+  busRoutePicker.value = route ? String(route.id) : (
+    [...busRoutePicker.options].some((option) => option.value === selectedPickerValue)
+      ? selectedPickerValue
+      : ""
+  );
+  busRouteExistenceStatus.hidden = !busRouteCode.value.trim();
+  if (busRouteCode.value.trim()) {
+    const heading = document.createElement("span");
+    const detail = document.createElement("small");
+    if (route) {
+      heading.textContent = `Route ${route.routeCode} already exists`;
+      detail.textContent = directions.length
+        ? `You are editing this route. It currently has ${directions.length} ${directions.length === 1 ? "direction" : "directions"}.`
+        : "You are editing this route. It does not have a direction yet.";
+      if (route.colour) busRouteColour.value = route.colour;
+    } else {
+      heading.textContent = `New Route ${busRouteCode.value.trim()}`;
+      detail.textContent = "This route will be created when you add its first selected segments.";
+    }
+    busRouteExistenceStatus.replaceChildren(heading, detail);
+  }
+  busRouteDirectionField.hidden = !route;
+  if (!route) {
+    busRouteDirection.replaceChildren();
+    stageBusRouteButton.textContent = "Add route to edit session";
+    return;
+  }
+  const previous = busRouteDirection.value;
+  const createDirectionOption = document.createElement("option");
+  createDirectionOption.value = "";
+  createDirectionOption.textContent = "Create a new direction";
+  busRouteDirection.replaceChildren(
+    createDirectionOption,
+    ...directions.map((direction) => {
+      const option = document.createElement("option");
+      option.value = direction.id;
+      option.textContent = direction.displayName || `Direction ${direction.id}`;
+      return option;
+    })
+  );
+  if ([...busRouteDirection.options].some((option) => option.value === previous)) {
+    busRouteDirection.value = previous;
+  } else if (directions.length === 1) {
+    busRouteDirection.value = directions[0].id;
+  }
+  stageBusRouteButton.textContent = `Add segments to Route ${route.routeCode}`;
 }
 
 function toggleRouteSegment(segment) {
@@ -695,6 +828,79 @@ function exportRouteDraftGpx() {
   URL.revokeObjectURL(url);
 }
 
+async function stageBusRouteDraft() {
+  const segments = routeSegments();
+  const routeCode = busRouteCode.value.trim();
+  if (!editSession || !segments.length || !routeCode || isSaving) return;
+  showMessage(`Adding Route ${routeCode}…`, "loading");
+  stageBusRouteButton.disabled = true;
+  try {
+    let route = existingBusRouteForCode();
+    let result = editSession;
+    let response;
+    if (!route) {
+      response = await fetch(`/api/edit-sessions/${editSession.token}/routes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ routeCode, colour: busRouteColour.value }),
+      });
+      result = await response.json();
+      if (!response.ok) throw new Error(result.error || "The bus route could not be created.");
+      route = result.routes.find(
+        (item) => item.state !== "deleted" && item.routeCode.toLowerCase() === routeCode.toLowerCase()
+      );
+      if (!route) throw new Error("The staged bus route was not returned.");
+      editSession = result;
+    }
+    let direction = (editSession.routeDirections || []).find(
+      (item) => String(item.id) === String(busRouteDirection.value)
+        && String(item.busRouteId) === String(route.id)
+        && item.state !== "deleted"
+    );
+    if (!direction) {
+      response = await fetch(`/api/edit-sessions/${editSession.token}/routes/${encodeURIComponent(route.id)}/directions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startJunctionId: segments[0].routeStartJunctionId,
+          endJunctionId: segments[segments.length - 1].routeEndJunctionId,
+        }),
+      });
+      result = await response.json();
+      if (!response.ok) throw new Error(result.error || "The route direction could not be created.");
+      direction = result.routeDirections.find(
+        (item) => item.state !== "deleted" && String(item.busRouteId) === String(route.id)
+          && String(item.startJunctionId) === String(segments[0].routeStartJunctionId)
+          && String(item.endJunctionId) === String(segments[segments.length - 1].routeEndJunctionId)
+      );
+      if (!direction) throw new Error("The staged route direction was not returned.");
+      editSession = result;
+    }
+    for (const segment of segments) {
+      const traversal = String(segment.routeStartJunctionId) === String(segmentJunctionId(segment, "start"))
+        ? "start_to_end"
+        : "end_to_start";
+      response = await fetch(
+        `/api/edit-sessions/${editSession.token}/route-directions/${encodeURIComponent(direction.id)}/segments/${encodeURIComponent(segment.id)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ traversal }),
+        }
+      );
+      result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Segment ${segment.id} could not be assigned.`);
+    }
+    renderSession(result);
+    routeDraftSteps = [];
+    renderRouteDraft();
+    showMessage(`Segments added to Route ${routeCode}. Use Save changes to commit them.`, "success");
+  } catch (error) {
+    showMessage(error.message || "The bus route could not be staged.");
+    stageBusRouteButton.disabled = false;
+  }
+}
+
 function updateModeInterface() {
   modeButtons.forEach((button) => {
     button.setAttribute("aria-pressed", button.dataset.mode === activeMode ? "true" : "false");
@@ -703,7 +909,7 @@ function updateModeInterface() {
   const hasChanges = Boolean(editSession?.operations.length);
   const showEditHome = activeMode === "edit" && !selected && !hasChanges;
   editHomeSection.hidden = !showEditHome;
-  uploadForm.hidden = !showEditHome;
+  uploadForm.hidden = true;
   cleanupAreaButton.hidden = activeMode !== "edit";
   routeDraftSection.hidden = activeMode !== "route";
   networkSection.hidden = activeMode === "route";
@@ -1835,7 +2041,9 @@ function updateSelectionInterface() {
   setActiveToolButton(newSegmentButton, activeTool?.id === "new-segment");
   completeNewSegmentButton.hidden = !isEditMode || isPath || ["deleted", "replaced"].includes(selected.state) || !newSegmentDraft;
   completeNewSegmentButton.disabled = !newSegmentDraft || newSegmentDraft.geometry.length < 2;
-  setButtonLabel(completeNewSegmentButton, "Complete at last point", "Enter");
+  finishNewPathButton.hidden = !newSegmentDraft;
+  finishNewPathButton.disabled = !newSegmentDraft || newSegmentDraft.geometry.length < 2;
+  setButtonLabel(completeNewSegmentButton, "Save path at new junction", "Enter");
   setActiveToolButton(completeNewSegmentButton, false);
   moveJunctionButton.hidden = !isEditMode || isPath || ["deleted", "replaced"].includes(selected.state);
   setButtonLabel(moveJunctionButton, isJunctionMovePlacement
@@ -2779,10 +2987,25 @@ cancelSessionButton.addEventListener("click", cancelCurrentSession);
 fitButton.addEventListener("click", fitAllPaths);
 cleanupAreaButton.addEventListener("click", toggleAreaCleanupPlacement);
 panelCleanupAreaButton.addEventListener("click", toggleAreaCleanupPlacement);
+addJunctionButton.addEventListener("click", toggleAddJunctionPlacement);
 clearSelectionButton.addEventListener("click", clearSelection);
 undoRouteSegmentButton.addEventListener("click", undoRouteDraftStep);
 clearRouteButton.addEventListener("click", clearRouteDraft);
 exportRouteGpxButton.addEventListener("click", exportRouteDraftGpx);
+stageBusRouteButton.addEventListener("click", stageBusRouteDraft);
+busRouteCode.addEventListener("input", renderRouteDraft);
+busRoutePicker.addEventListener("change", () => {
+  const route = (editSession?.routes || []).find(
+    (item) => String(item.id) === String(busRoutePicker.value) && item.state !== "deleted"
+  );
+  if (route) {
+    busRouteCode.value = route.routeCode;
+    if (route.colour) busRouteColour.value = route.colour;
+  } else {
+    busRouteCode.value = "";
+  }
+  renderRouteDraft();
+});
 splitModeButton.addEventListener("click", toggleSplitPlacement);
 deleteSegmentButton.addEventListener("click", () => stagePathSegmentDeletion());
 duplicateCleanupButton.addEventListener("click", stageDuplicateCleanup);
@@ -2793,7 +3016,9 @@ metadataPreference.addEventListener("change", () => scheduleMetadataStage());
 metadataNotes.addEventListener("input", () => scheduleMetadataStage({ delay: 600 }));
 metadataNotes.addEventListener("blur", () => stageMetadata());
 junctionPlaceType.addEventListener("change", () => {
-  if (junctionPlaceType.value) junctionProtected.checked = true;
+  const isRouteTerminus = junctionPlaceType.value === "route_terminus";
+  if (isRouteTerminus) junctionProtected.checked = true;
+  junctionProtected.disabled = isRouteTerminus;
   scheduleMetadataStage();
 });
 junctionName.addEventListener("input", () => scheduleMetadataStage({ delay: 600 }));
@@ -2804,6 +3029,7 @@ junctionProtected.addEventListener("change", () => scheduleMetadataStage());
 cleanJunctionButton.addEventListener("click", stageSelectedJunctionCleanup);
 newSegmentButton.addEventListener("click", toggleNewSegmentDraft);
 completeNewSegmentButton.addEventListener("click", completeNewSegmentAtLastPoint);
+finishNewPathButton.addEventListener("click", completeNewSegmentAtLastPoint);
 moveJunctionButton.addEventListener("click", toggleJunctionMovePlacement);
 mergeJunctionsButton.addEventListener("click", toggleJunctionPairMergePlacement);
 mergeJunctionButton.addEventListener("click", stageJunctionMerge);
@@ -2857,6 +3083,10 @@ map.on("click", (event) => {
     return;
   }
   if (isAreaCleanupPlacement) return;
+  if (isAddJunctionPlacement) {
+    placeStandaloneJunction(event.latlng);
+    return;
+  }
   if (newSegmentDraft) {
     addNewSegmentShapePoint(event.latlng);
     return;

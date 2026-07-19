@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>London Bus Map Editor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v='18') }}">
+  <style>
+    body { display: grid; place-items: center; background: var(--paper); }
+    .login-card { width: min(380px, calc(100vw - 32px)); padding: 28px; background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+    .login-card label { display: grid; gap: 7px; margin: 22px 0 14px; color: var(--muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }
+    .login-card input { min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; }
+    .login-card button { width: 100%; min-height: 40px; color: white; background: var(--green); border: 0; border-radius: 9px; font-weight: 700; }
+    #login-error { color: #9a3f36; font-size: .78rem; }
+  </style>
+</head>
+<body>
+  <form id="login-form" class="login-card">
+    <p class="eyebrow">Protected workspace</p>
+    <h1>London Bus Map Editor</h1>
+    <label>Password<input id="password" type="password" required autofocus></label>
+    <button>Sign in</button>
+    <p id="login-error" role="alert"></p>
+  </form>
+  <script>
+    document.querySelector('#login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const response = await fetch('/api/editor/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({password: document.querySelector('#password').value})
+      });
+      const body = await response.json();
+      if (!response.ok) document.querySelector('#login-error').textContent = body.error || 'Sign in failed.';
+      else location.replace('/editor');
+    });
+  </script>
+</body>
+</html>

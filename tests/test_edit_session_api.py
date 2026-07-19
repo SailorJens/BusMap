@@ -2120,10 +2120,10 @@ def test_edit_junction_metadata_sets_place_type_and_commit_persists(app, client)
         f"/api/edit-sessions/{session['token']}/junctions/{junction['id']}/metadata",
         json={
             "metadata": {
-                "protected": True,
-                "place_type": "train_station",
-                "name": "  Oberammergau Bahnhof  ",
-                "notes": "  Good route start  ",
+                "protected": False,
+                "place_type": "route_terminus",
+                "name": "  Victoria  ",
+                "notes": "  Route terminus  ",
             }
         },
     )
@@ -2139,9 +2139,9 @@ def test_edit_junction_metadata_sets_place_type_and_commit_persists(app, client)
     )
     assert edited["metadata"] == {
         "protected": True,
-        "place_type": "train_station",
-        "name": "Oberammergau Bahnhof",
-        "notes": "Good route start",
+        "place_type": "route_terminus",
+        "name": "Victoria",
+        "notes": "Route terminus",
     }
 
     committed = client.post(f"/api/edit-sessions/{session['token']}/commit").get_json()

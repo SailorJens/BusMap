@@ -31,11 +31,7 @@
     "type": "single_select",
     "values": [
       { "id": "", "label": "None", "icon": "" },
-      { "id": "train_station", "label": "Train station", "icon": "lightrail" },
-      { "id": "bus_stop", "label": "Bus stop", "icon": "bus.fill" },
-      { "id": "manor_palace", "label": "Manor house / palace", "icon": "M" },
-      { "id": "viewpoint", "label": "Viewpoint", "icon": "V" },
-      { "id": "church", "label": "Church", "icon": "+" }
+      { "id": "route_terminus", "label": "Route Terminus", "icon": "T" }
     ]
   }
 }

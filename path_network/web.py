@@ -12,6 +12,7 @@ from path_network.edit_session import (
     EditSessionError,
     EditSessionValidation,
     cancel_edit_session,
+    add_junction,
     commit_edit_session,
     compare_duplicate_cleanup,
     create_edit_session,
@@ -61,13 +62,9 @@ def index():
 
 @web.get("/editor")
 def editor():
-    return render_template(
-        "editor.html",
-        tile_url=current_app.config["OSM_TILE_URL"],
-        tile_attribution=current_app.config["OSM_ATTRIBUTION"],
-        tile_max_zoom=current_app.config["OSM_MAX_ZOOM"],
-        authenticated=bool(session.get("editor_authenticated")),
-    )
+    if not session.get("editor_authenticated") and not current_app.config.get("TESTING"):
+        return render_template("editor_login.html")
+    return render_template("index.html")
 
 
 @web.post("/api/editor/login")
@@ -254,6 +251,19 @@ def path_network():
 @web.post("/api/edit-sessions")
 def create_session():
     return jsonify(create_edit_session(current_app)), 201
+
+
+@web.post("/api/edit-sessions/<token>/junctions")
+def create_standalone_junction(token: str):
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(add_junction(
+            current_app, token, payload.get("longitude"), payload.get("latitude")
+        )), 201
+    except EditSessionValidation as error:
+        return jsonify({"error": str(error)}), 400
+    except EditSessionError as error:
+        return jsonify({"error": str(error)}), 404
 
 
 @web.get("/api/edit-sessions/<token>")
