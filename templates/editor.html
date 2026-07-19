@@ -5,26 +5,28 @@
   <title>London Bus Map Editor</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='bus.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='editor.css', v='1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v='18') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='editor.css', v='3') }}">
 </head>
 <body>
   <div id="login-screen" class="login-screen" {% if authenticated %}hidden{% endif %}>
     <form id="login-form" class="login-card"><h1>Bus Map Editor</h1><label class="field"><span>Password</span><input id="password" type="password" required autofocus></label><button>Sign in</button><p id="login-error" class="error"></p></form>
   </div>
-  <main id="editor-shell" class="bus-shell" {% if not authenticated %}hidden{% endif %}>
-    <aside class="bus-sidebar editor-sidebar">
-      <header><span class="roundel">EDIT</span><div><h1>Bus Map Editor</h1><p>Routes and shared segments</p></div></header>
+  <main id="editor-shell" class="bus-shell app-shell" {% if not authenticated %}hidden{% endif %}>
+    <aside class="bus-sidebar editor-sidebar sidebar">
+      <header class="brand"><span class="roundel">BUS</span><div><p class="eyebrow">Network workspace</p><h1>London Bus Map</h1><p>Routes and shared segments</p></div></header>
       <div id="editor-message" class="message" hidden></div>
-      <section class="card"><h2>Create route</h2><form id="route-form"><label class="field"><span>Route code</span><input id="route-code" maxlength="20" required></label><label class="field"><span>Colour</span><input id="route-colour" type="color" value="#e32017"></label><button>Create route</button></form></section>
+      <section class="card"><div class="section-heading"><h2>Create route</h2></div><form id="route-form"><label class="field"><span>Route code</span><input id="route-code" maxlength="20" required></label><label class="field"><span>Colour</span><input id="route-colour" type="color" value="#e32017"></label><button class="primary-button">Create route</button></form></section>
       <section class="card"><h2>Draw network</h2><button id="draw-route" type="button">Draw standalone segments</button><p id="draw-status" class="hint">No route is required. Start anywhere and click for shape points.</p><div class="row"><button id="finish-drawing" class="quiet" type="button" disabled>Finish at new node</button><button id="cancel-drawing" class="quiet" type="button" disabled>Stop drawing</button></div></section>
       <section class="card"><h2>Build route from segments</h2><label class="field"><span>Route</span><select id="route-select"></select></label><label class="field"><span>Direction</span><select id="direction-select"></select></label><button id="new-direction" type="button">Create undefined direction</button><button id="route-brush" type="button">Start connected route brush</button><button id="finish-brush" class="quiet" type="button" disabled>Finish route brush</button><button id="set-endpoints" class="quiet" type="button">Set direction endpoints manually</button><p id="brush-status" class="hint">Choose a direction, then click connected segments in route order.</p></section>
-      <section id="segment-card" class="card" hidden><h2>Selected segment</h2><div id="segment-detail"></div><label class="field"><span>Route traversal</span><select id="traversal"><option value="both">Both</option><option value="start_to_end">Start → end</option><option value="end_to_start">End → start</option></select></label><label class="field"><span>Physical direction</span><select id="segment-direction"><option value="bidirectional">Bidirectional</option><option value="start_to_end">Start → end only</option><option value="end_to_start">End → start only</option></select></label><button id="set-segment-direction" class="quiet" type="button">Set physical direction</button></section>
+      <section id="segment-card" class="card" hidden><h2>Selected segment</h2><div id="segment-detail"></div><div class="row"><button id="edit-shape" class="quiet" type="button">Move shape points</button><button id="split-segment" class="quiet" type="button">Add junction</button></div><button id="delete-segment" type="button">Delete segment</button><div id="shape-actions" hidden><p class="hint">Drag the orange shape points, then apply.</p><div class="row"><button id="apply-shape" type="button">Apply geometry</button><button id="cancel-shape" class="quiet" type="button">Cancel</button></div></div><label class="field"><span>Route traversal</span><select id="traversal"><option value="both">Both</option><option value="start_to_end">Start → end</option><option value="end_to_start">End → start</option></select></label><label class="field"><span>Physical direction</span><select id="segment-direction"><option value="bidirectional">Bidirectional</option><option value="start_to_end">Start → end only</option><option value="end_to_start">End → start only</option></select></label><button id="set-segment-direction" class="quiet" type="button">Set physical direction</button></section>
+      <section id="junction-card" class="card" hidden><h2>Selected junction</h2><div id="junction-detail"></div><button id="move-junction" class="quiet" type="button">Move junction</button><button id="merge-junction" type="button">Remove degree-two junction and merge</button></section>
       <section class="card"><h2>Edit session</h2><p id="session-summary" class="hint">No staged changes.</p><p class="hint">Save automatically finishes the active route and preserves its current endpoint node.</p><div class="row"><button id="undo" class="quiet" type="button">Undo</button><button id="save" type="button">Save</button></div><button id="cancel" class="quiet" type="button">Cancel changes</button></section>
       <div class="row"><a class="editor-link" href="/">Public viewer</a><button id="logout" class="quiet">Sign out</button></div>
     </aside>
-    <div id="map" class="bus-map editor-map" data-tile-url="{{ tile_url }}" data-attribution="{{ tile_attribution }}" data-max-zoom="{{ tile_max_zoom }}"></div>
+    <div id="map" class="bus-map editor-map map-panel" data-tile-url="{{ tile_url }}" data-attribution="{{ tile_attribution }}" data-max-zoom="{{ tile_max_zoom }}"></div>
   </main>
   <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
-  <script src="{{ url_for('static', filename='bus-editor.js', v='3') }}"></script>
+  <script src="{{ url_for('static', filename='bus-editor.js', v='4') }}"></script>
 </body>
 </html>

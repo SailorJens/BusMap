@@ -4,3 +4,178 @@
 .editor-map .leaflet-interactive {
   cursor: default !important;
 }
+
+.shape-point-handle {
+  background: white;
+  border: 3px solid #f28c00;
+  border-radius: 50%;
+  cursor: move !important;
+}
+
+.editor-sidebar {
+  gap: 0;
+  padding: 26px 24px 18px;
+  background: rgba(250, 251, 248, 0.98);
+}
+
+.editor-sidebar .brand {
+  margin-bottom: 22px;
+}
+
+.editor-sidebar .brand > div {
+  min-width: 0;
+}
+
+.editor-sidebar .brand p:not(.eyebrow) {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.editor-sidebar .roundel {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--green);
+  background: var(--green-soft);
+  border: 0;
+  border-radius: 14px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.editor-sidebar .card {
+  display: grid;
+  gap: 9px;
+  margin: 0 0 13px;
+  padding: 13px;
+  color: var(--muted);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.editor-sidebar .card:hover {
+  border-color: #c5d4cb;
+}
+
+.editor-sidebar .card > h2 {
+  margin: 0 0 2px;
+  color: var(--ink);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.editor-sidebar .field {
+  display: grid;
+  gap: 5px;
+  margin: 3px 0;
+}
+
+.editor-sidebar .field > span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.editor-sidebar input,
+.editor-sidebar select,
+.editor-sidebar textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  color: var(--ink);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+}
+
+.editor-sidebar input:focus,
+.editor-sidebar select:focus,
+.editor-sidebar textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(31, 107, 79, 0.12);
+}
+
+.editor-sidebar button:not(.quiet) {
+  min-height: 34px;
+  padding: 7px 9px;
+  color: var(--white);
+  background: var(--green);
+  border: 1px solid var(--green);
+  border-radius: 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.editor-sidebar button:not(.quiet):hover {
+  background: var(--green-dark);
+}
+
+.editor-sidebar button.quiet {
+  min-height: 34px;
+  padding: 7px 9px;
+  color: var(--green-dark);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.editor-sidebar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.editor-sidebar .hint {
+  margin: 2px 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.editor-sidebar .message {
+  margin-bottom: 13px;
+  padding: 10px 11px;
+  color: var(--green-dark);
+  background: var(--green-soft);
+  border: 1px solid #c5d9ce;
+  border-radius: 9px;
+  font-size: 0.75rem;
+}
+
+.editor-sidebar #segment-card,
+.editor-sidebar #junction-card {
+  border-color: #b9cfc4;
+  box-shadow: 0 8px 22px rgba(31, 75, 57, 0.08);
+}
+
+.editor-sidebar #delete-segment,
+.editor-sidebar #merge-junction {
+  color: #9a3f36;
+  background: #fff8f6;
+  border-color: #edc6bd;
+}
+
+.editor-sidebar #delete-segment:hover,
+.editor-sidebar #merge-junction:hover {
+  background: #f9e9e6;
+}
+
+.editor-sidebar .editor-link {
+  color: var(--green);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.editor-map .leaflet-control-zoom a {
+  color: var(--green-dark);
+}
