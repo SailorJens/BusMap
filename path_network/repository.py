@@ -688,8 +688,10 @@ def commit_staged_network(
                         WHERE id = ?
                         """,
                         (
-                            resolve_junction_id(direction["startJunctionId"]),
-                            resolve_junction_id(direction["endJunctionId"]),
+                            resolve_junction_id(direction["startJunctionId"])
+                            if direction.get("startJunctionId") is not None else None,
+                            resolve_junction_id(direction["endJunctionId"])
+                            if direction.get("endJunctionId") is not None else None,
                             direction.get("customDirectionName"), direction["id"],
                         ),
                     )

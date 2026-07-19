@@ -193,13 +193,13 @@
               <datalist id="bus-route-codes"></datalist>
             </label>
             <div id="bus-route-existence-status" class="active-tool-panel" hidden></div>
-            <label class="metadata-field">
-              <span>Route colour</span>
-              <input id="bus-route-colour" type="color" value="#e32017">
-            </label>
             <label id="bus-route-direction-field" class="metadata-field" hidden>
-              <span>Existing route direction</span>
+              <span>Route direction</span>
               <select id="bus-route-direction"></select>
+            </label>
+            <label id="bus-route-direction-name-field" class="metadata-field" hidden>
+              <span>Direction name</span>
+              <input id="bus-route-direction-name" type="text" maxlength="80" placeholder="Eastbound, Westbound…" autocomplete="off">
             </label>
             <div class="route-draft-stats">
               <strong id="route-draft-length">0 m</strong>
@@ -210,6 +210,9 @@
           <div class="route-draft-actions">
             <button id="stage-bus-route-button" class="primary-button" type="button" disabled>
               Add route to edit session
+            </button>
+            <button id="save-route-changes-button" class="primary-button" type="button" disabled>
+              Save changes
             </button>
             <button id="undo-route-segment-button" class="secondary-button" type="button" disabled>
               Undo segment
@@ -296,6 +299,6 @@
     </main>
 
     <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
-    <script src="{{ url_for('static', filename='app.js', v='43') }}"></script>
+    <script src="{{ url_for('static', filename='app.js', v='51') }}"></script>
   </body>
 </html>

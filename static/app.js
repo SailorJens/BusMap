@@ -3,7 +3,7 @@ const colors = {
   added: "#e55c45",
   deleted: "#1f6b4f",
   replaced: "#1f6b4f",
-  route: "#6b9dde",
+  route: "#e13f32",
 };
 const selectedPathOpacityFactor = 0.55;
 const selectedPathMinimumOpacity = 0.18;
@@ -137,10 +137,12 @@ const busRouteCode = document.querySelector("#bus-route-code");
 const busRoutePicker = document.querySelector("#bus-route-picker");
 const busRouteCodes = document.querySelector("#bus-route-codes");
 const busRouteExistenceStatus = document.querySelector("#bus-route-existence-status");
-const busRouteColour = document.querySelector("#bus-route-colour");
 const busRouteDirectionField = document.querySelector("#bus-route-direction-field");
 const busRouteDirection = document.querySelector("#bus-route-direction");
+const busRouteDirectionNameField = document.querySelector("#bus-route-direction-name-field");
+const busRouteDirectionName = document.querySelector("#bus-route-direction-name");
 const stageBusRouteButton = document.querySelector("#stage-bus-route-button");
+const saveRouteChangesButton = document.querySelector("#save-route-changes-button");
 const selectionName = document.querySelector("#selection-name");
 const selectionDetails = document.querySelector("#selection-details");
 const pathActionGroup = document.querySelector("#path-action-group");
@@ -255,8 +257,10 @@ function visiblePathStyle(segment, state, isAdded, isRemoved) {
     };
   }
   return {
-    ...preferencePathStyles[pathPreference(segment)],
-    opacity: isAdded ? 0.95 : 0.88,
+    color: colors.saved,
+    weight: 4.5,
+    opacity: 0.82,
+    dashArray: null,
   };
 }
 
@@ -617,12 +621,39 @@ function routeDraftGpx() {
 function renderRouteDraftLayer() {
   routeDraftLayer.clearLayers();
   if (activeMode !== "route") return;
+  const route = existingBusRouteForCode();
+  if (route && busRouteDirection.value !== "__new__") {
+    const routeDirectionIds = new Set(
+      (editSession?.routeDirections || [])
+        .filter((direction) => String(direction.busRouteId) === String(route.id) && direction.state !== "deleted")
+        .filter((direction) => !busRouteDirection.value
+          || String(direction.id) === String(busRouteDirection.value))
+        .map((direction) => String(direction.id))
+    );
+    const segmentIds = new Set(
+      (editSession?.routeMemberships || [])
+        .filter((membership) => membership.state !== "deleted" && routeDirectionIds.has(String(membership.routeDirectionId)))
+        .map((membership) => String(membership.pathSegmentId))
+    );
+    (activeNetwork().pathSegments || [])
+      .filter((segment) => ["saved", "added"].includes(segment.state || "saved") && segmentIds.has(String(segment.id)))
+      .forEach((segment) => {
+        L.polyline(segment.geometry.map(([longitude, latitude]) => [latitude, longitude]), {
+          color: colors.route,
+          weight: 6,
+          opacity: 1,
+          lineCap: "round",
+          lineJoin: "round",
+          interactive: false,
+        }).bindTooltip(`Route ${route.routeCode}`).addTo(routeDraftLayer);
+      });
+  }
   routeSegments().forEach((segment, index) => {
     const latLngs = segment.geometry.map(([longitude, latitude]) => [latitude, longitude]);
     L.polyline(latLngs, {
       color: colors.route,
-      weight: 11,
-      opacity: 0.28,
+      weight: 6,
+      opacity: 1,
       lineCap: "round",
       lineJoin: "round",
       interactive: false,
@@ -630,6 +661,12 @@ function renderRouteDraftLayer() {
       .bindTooltip(`Route step ${index + 1} · ${formatDistance(segment.distance_m)}`)
       .addTo(routeDraftLayer);
   });
+  routeDraftLayer.eachLayer((layer) => layer.bringToFront?.());
+}
+
+function fitExistingBusRoute() {
+  const bounds = routeDraftLayer.getBounds();
+  if (bounds.isValid()) map.fitBounds(bounds, { padding: [35, 35] });
 }
 
 function renderRouteDraft() {
@@ -652,6 +689,7 @@ function renderRouteDraft() {
   clearRouteButton.disabled = segments.length === 0;
   exportRouteGpxButton.disabled = segments.length === 0;
   stageBusRouteButton.disabled = segments.length === 0 || !busRouteCode.value.trim();
+  saveRouteChangesButton.disabled = !editSession?.canCommit || isSaving;
   renderBusRouteDirectionChoices();
   routeDraftList.replaceChildren(
     ...segments.map((segment, index) => {
@@ -672,7 +710,6 @@ function existingBusRouteForCode() {
 
 function renderBusRouteDirectionChoices() {
   const availableRoutes = (editSession?.routes || []).filter((route) => route.state !== "deleted");
-  const selectedPickerValue = busRoutePicker.value;
   const createOption = document.createElement("option");
   createOption.value = "";
   createOption.textContent = "Create a new route…";
@@ -698,11 +735,7 @@ function renderBusRouteDirectionChoices() {
       (direction) => direction.state !== "deleted" && String(direction.busRouteId) === String(route.id)
     )
     : [];
-  busRoutePicker.value = route ? String(route.id) : (
-    [...busRoutePicker.options].some((option) => option.value === selectedPickerValue)
-      ? selectedPickerValue
-      : ""
-  );
+  busRoutePicker.value = route ? String(route.id) : "";
   busRouteExistenceStatus.hidden = !busRouteCode.value.trim();
   if (busRouteCode.value.trim()) {
     const heading = document.createElement("span");
@@ -712,7 +745,6 @@ function renderBusRouteDirectionChoices() {
       detail.textContent = directions.length
         ? `You are editing this route. It currently has ${directions.length} ${directions.length === 1 ? "direction" : "directions"}.`
         : "You are editing this route. It does not have a direction yet.";
-      if (route.colour) busRouteColour.value = route.colour;
     } else {
       heading.textContent = `New Route ${busRouteCode.value.trim()}`;
       detail.textContent = "This route will be created when you add its first selected segments.";
@@ -720,30 +752,51 @@ function renderBusRouteDirectionChoices() {
     busRouteExistenceStatus.replaceChildren(heading, detail);
   }
   busRouteDirectionField.hidden = !route;
+  busRouteDirectionNameField.hidden = !route;
   if (!route) {
     busRouteDirection.replaceChildren();
+    busRouteDirectionName.value = "";
+    busRouteDirectionName.dataset.directionId = "";
     stageBusRouteButton.textContent = "Add route to edit session";
+    renderRouteDraftLayer();
     return;
   }
   const previous = busRouteDirection.value;
   const createDirectionOption = document.createElement("option");
-  createDirectionOption.value = "";
-  createDirectionOption.textContent = "Create a new direction";
+  createDirectionOption.value = "__new__";
+  createDirectionOption.textContent = `+ Create Direction ${directions.length + 1}`;
   busRouteDirection.replaceChildren(
-    createDirectionOption,
-    ...directions.map((direction) => {
+    ...directions.map((direction, index) => {
       const option = document.createElement("option");
       option.value = direction.id;
-      option.textContent = direction.displayName || `Direction ${direction.id}`;
+      const membershipCount = (editSession?.routeMemberships || []).filter(
+        (membership) => membership.state !== "deleted"
+          && String(membership.routeDirectionId) === String(direction.id)
+      ).length;
+      option.textContent = `${direction.displayName || `Direction ${index + 1}`} · ${membershipCount} ${membershipCount === 1 ? "segment" : "segments"}`;
       return option;
-    })
+    }),
+    ...(directions.length < 2 ? [createDirectionOption] : [])
   );
   if ([...busRouteDirection.options].some((option) => option.value === previous)) {
     busRouteDirection.value = previous;
-  } else if (directions.length === 1) {
+  } else if (directions.length) {
     busRouteDirection.value = directions[0].id;
+  } else if (directions.length < 2) {
+    busRouteDirection.value = "__new__";
+  }
+  const selectedDirection = directions.find(
+    (direction) => String(direction.id) === String(busRouteDirection.value)
+  );
+  const directionNameKey = selectedDirection ? String(selectedDirection.id) : "__new__";
+  if (busRouteDirectionName.dataset.directionId !== directionNameKey) {
+    busRouteDirectionName.value = selectedDirection
+      ? (selectedDirection.customDirectionName || selectedDirection.displayName || "")
+      : "";
+    busRouteDirectionName.dataset.directionId = directionNameKey;
   }
   stageBusRouteButton.textContent = `Add segments to Route ${route.routeCode}`;
+  renderRouteDraftLayer();
 }
 
 function toggleRouteSegment(segment) {
@@ -751,9 +804,7 @@ function toggleRouteSegment(segment) {
     showMessage("Only saved path segments can be added to a draft route.");
     return;
   }
-  const key = String(segment.id);
-  const existingIndex = routeDraftSteps.findIndex((step) => String(step.pathSegmentId) === key);
-  if (existingIndex === -1) {
+  {
     const startJunctionId = segmentJunctionId(segment, "start");
     const endJunctionId = segmentJunctionId(segment, "end");
     if (!routeDraftSteps.length) {
@@ -795,9 +846,6 @@ function toggleRouteSegment(segment) {
         return;
       }
     }
-  } else {
-    routeDraftSteps.splice(existingIndex);
-    normalizeSingleRouteStep();
   }
   hideMessage();
   renderRouteDraft();
@@ -842,7 +890,7 @@ async function stageBusRouteDraft() {
       response = await fetch(`/api/edit-sessions/${editSession.token}/routes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ routeCode, colour: busRouteColour.value }),
+        body: JSON.stringify({ routeCode }),
       });
       result = await response.json();
       if (!response.ok) throw new Error(result.error || "The bus route could not be created.");
@@ -864,6 +912,7 @@ async function stageBusRouteDraft() {
         body: JSON.stringify({
           startJunctionId: segments[0].routeStartJunctionId,
           endJunctionId: segments[segments.length - 1].routeEndJunctionId,
+          customDirectionName: busRouteDirectionName.value.trim() || null,
         }),
       });
       result = await response.json();
@@ -893,11 +942,45 @@ async function stageBusRouteDraft() {
     }
     renderSession(result);
     routeDraftSteps = [];
+    busRoutePicker.value = "";
+    busRouteCode.value = "";
+    busRouteDirection.replaceChildren();
     renderRouteDraft();
     showMessage(`Segments added to Route ${routeCode}. Use Save changes to commit them.`, "success");
   } catch (error) {
     showMessage(error.message || "The bus route could not be staged.");
     stageBusRouteButton.disabled = false;
+  }
+}
+
+async function stageBusRouteDirectionName() {
+  if (!editSession || isSaving || busRouteDirection.value === "__new__") return;
+  const direction = (editSession.routeDirections || []).find(
+    (item) => String(item.id) === String(busRouteDirection.value) && item.state !== "deleted"
+  );
+  if (!direction) return;
+  const customDirectionName = busRouteDirectionName.value.trim() || null;
+  if ((direction.customDirectionName || null) === customDirectionName) return;
+  showMessage("Updating direction name…", "loading");
+  try {
+    const response = await fetch(
+      `/api/edit-sessions/${editSession.token}/route-directions/${encodeURIComponent(direction.id)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startJunctionId: direction.startJunctionId,
+          endJunctionId: direction.endJunctionId,
+          customDirectionName,
+        }),
+      }
+    );
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "The direction name could not be updated.");
+    renderSession(result);
+    showMessage("Direction name updated. Use Save changes to commit it.", "success");
+  } catch (error) {
+    showMessage(error.message || "The direction name could not be updated.");
   }
 }
 
@@ -2993,19 +3076,28 @@ undoRouteSegmentButton.addEventListener("click", undoRouteDraftStep);
 clearRouteButton.addEventListener("click", clearRouteDraft);
 exportRouteGpxButton.addEventListener("click", exportRouteDraftGpx);
 stageBusRouteButton.addEventListener("click", stageBusRouteDraft);
-busRouteCode.addEventListener("input", renderRouteDraft);
+saveRouteChangesButton.addEventListener("click", saveCurrentSession);
+busRouteCode.addEventListener("input", () => {
+  renderRouteDraft();
+  if (existingBusRouteForCode()) fitExistingBusRoute();
+});
 busRoutePicker.addEventListener("change", () => {
   const route = (editSession?.routes || []).find(
     (item) => String(item.id) === String(busRoutePicker.value) && item.state !== "deleted"
   );
   if (route) {
     busRouteCode.value = route.routeCode;
-    if (route.colour) busRouteColour.value = route.colour;
   } else {
     busRouteCode.value = "";
   }
   renderRouteDraft();
+  if (route) fitExistingBusRoute();
 });
+busRouteDirection.addEventListener("change", () => {
+  renderRouteDraft();
+  fitExistingBusRoute();
+});
+busRouteDirectionName.addEventListener("change", stageBusRouteDirectionName);
 splitModeButton.addEventListener("click", toggleSplitPlacement);
 deleteSegmentButton.addEventListener("click", () => stagePathSegmentDeletion());
 duplicateCleanupButton.addEventListener("click", stageDuplicateCleanup);
@@ -3073,7 +3165,10 @@ map.on("mouseup", (event) => {
   }
   stageAreaCleanup(bounds);
 });
-map.on("zoomend moveend", renderSelectedTracePoints);
+map.on("zoomend moveend", () => {
+  renderSelectedTracePoints();
+  if (activeMode === "route") renderRouteDraftLayer();
+});
 map.on("zoomend", () => {
   if (activeMode === "route") renderNetwork(editSession?.network || savedNetwork);
 });

@@ -62,6 +62,7 @@ def test_editor_page(client):
     assert b"Build Route" in response.data
     assert b"Move point" in response.data
     assert b'id="bus-route-code"' in response.data
+    assert b'id="bus-route-direction-name"' in response.data
     assert b"unpkg.com" not in response.data
 
 
@@ -237,7 +238,7 @@ def test_frontend_supports_route_drafting_and_gpx_export(client):
     assert b"function toggleRouteSegment(segment)" in response.data
     assert b"either end of the first route segment" in response.data
     assert b"current route end" in response.data
-    assert b"routeDraftSteps.splice(existingIndex)" in response.data
+    assert b"routeDraftSteps.splice(existingIndex)" not in response.data
     assert b"function undoRouteDraftStep()" in response.data
     assert b"routeDraftSteps.pop()" in response.data
     assert b'undoRouteSegmentButton.addEventListener("click", undoRouteDraftStep)' in response.data

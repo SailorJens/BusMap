@@ -143,6 +143,8 @@ def create_direction(
     end_junction_id: int | None = None,
     custom_direction_name: str | None = None,
 ) -> dict[str, Any]:
+    if len(list_route_directions(bus_route_id)) >= 2:
+        raise RepositoryError("A bus route can have at most two directions.")
     if (start_junction_id is None) != (end_junction_id is None):
         raise RepositoryError("Set both direction endpoints or leave both undefined.")
     connection = get_db()

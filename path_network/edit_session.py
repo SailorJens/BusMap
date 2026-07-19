@@ -3036,6 +3036,14 @@ def stage_create_route_direction(
     if route is None:
         raise EditSessionValidation("The selected bus route does not exist.")
     bus_route_id = route["id"]
+    existing_directions = [
+        direction
+        for direction in derived["routeDirections"]
+        if str(direction["busRouteId"]) == str(bus_route_id)
+        and direction.get("state") != "deleted"
+    ]
+    if len(existing_directions) >= 2:
+        raise EditSessionValidation("A bus route can have at most two directions.")
     if (start_junction_id is None) != (end_junction_id is None):
         raise EditSessionValidation("Set both direction endpoints or leave both undefined.")
     active_nodes = {str(node["id"]) for node in derived["network"]["junctions"] if node["state"] in {"saved", "added"}}
@@ -3070,19 +3078,23 @@ def stage_update_route_direction(
     direction = next((item for item in derived["routeDirections"] if str(item["id"]) == str(route_direction_id)), None)
     if direction is None:
         raise EditSessionValidation("The selected route direction does not exist.")
-    active_nodes = {str(node["id"]) for node in derived["network"]["junctions"] if node["state"] in {"saved", "added"}}
-    if str(start_junction_id) not in active_nodes or str(end_junction_id) not in active_nodes:
-        raise EditSessionValidation("A route direction endpoint does not exist.")
-    if str(start_junction_id) == str(end_junction_id):
-        raise EditSessionValidation("Direction endpoints must be different nodes.")
-    start_node = next(node for node in derived["network"]["junctions"] if str(node["id"]) == str(start_junction_id))
-    end_node = next(node for node in derived["network"]["junctions"] if str(node["id"]) == str(end_junction_id))
+    if (start_junction_id is None) != (end_junction_id is None):
+        raise EditSessionValidation("Set both direction endpoints or leave both undefined.")
+    start_node = end_node = None
+    if start_junction_id is not None:
+        active_nodes = {str(node["id"]) for node in derived["network"]["junctions"] if node["state"] in {"saved", "added"}}
+        if str(start_junction_id) not in active_nodes or str(end_junction_id) not in active_nodes:
+            raise EditSessionValidation("A route direction endpoint does not exist.")
+        if str(start_junction_id) == str(end_junction_id):
+            raise EditSessionValidation("Direction endpoints must be different nodes.")
+        start_node = next(node for node in derived["network"]["junctions"] if str(node["id"]) == str(start_junction_id))
+        end_node = next(node for node in derived["network"]["junctions"] if str(node["id"]) == str(end_junction_id))
     session["operations"].append({
         "type": "update_route_direction",
         "routeDirectionId": direction["id"],
         "changes": {
-            "startJunctionId": start_node["id"],
-            "endJunctionId": end_node["id"],
+            "startJunctionId": start_node["id"] if start_node else None,
+            "endJunctionId": end_node["id"] if end_node else None,
             "customDirectionName": str(custom_direction_name).strip() if custom_direction_name else None,
         },
     })

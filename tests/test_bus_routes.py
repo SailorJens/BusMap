@@ -151,6 +151,29 @@ def test_route_workflow_is_staged_undoable_and_committed_atomically(app, client)
         assert snapshot["routeMemberships"][0]["traversal"] == "start_to_end"
 
 
+def test_route_direction_name_can_be_staged_and_saved(app, client):
+    with app.app_context():
+        route = create_route("89")
+        direction = create_direction(route["id"])
+
+    session = client.post("/api/edit-sessions").get_json()
+    staged = client.patch(
+        f"/api/edit-sessions/{session['token']}/route-directions/{direction['id']}",
+        json={
+            "startJunctionId": None,
+            "endJunctionId": None,
+            "customDirectionName": "Eastbound",
+        },
+    )
+    assert staged.status_code == 200
+    assert staged.get_json()["routeDirections"][0]["displayName"] == "Eastbound"
+
+    saved = client.post(f"/api/edit-sessions/{session['token']}/commit")
+    assert saved.status_code == 200
+    with app.app_context():
+        assert get_bus_snapshot()["routes"][0]["directions"][0]["displayName"] == "Eastbound"
+
+
 def test_route_drawing_can_start_and_finish_on_empty_map(app, client):
     session = client.post("/api/edit-sessions").get_json()
     staged_route = client.post(
@@ -281,3 +304,12 @@ def test_standalone_junction_can_be_added_selected_and_saved(app, client):
     nodes = committed.get_json()["network"]["junctions"]
     assert len(nodes) == 1
     assert nodes[0]["longitude"] == -0.1278
+
+
+def test_route_rejects_a_third_direction(app):
+    with app.app_context():
+        route = create_route("89")
+        create_direction(route["id"])
+        create_direction(route["id"])
+        with pytest.raises(RepositoryError, match="at most two"):
+            create_direction(route["id"])
