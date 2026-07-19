@@ -61,6 +61,7 @@ let overlapBoundaryPlacement = null;
 let duplicateCleanupSourceId = null;
 let newSegmentDraft = null;
 let routeDraftSteps = [];
+let routeReplacementStartJunctionId = null;
 let activeMode = "edit";
 
 const map = L.map("map", { zoomControl: false }).setView([51.1, 10.3], 6);
@@ -141,6 +142,8 @@ const busRouteDirectionField = document.querySelector("#bus-route-direction-fiel
 const busRouteDirection = document.querySelector("#bus-route-direction");
 const busRouteDirectionNameField = document.querySelector("#bus-route-direction-name-field");
 const busRouteDirectionName = document.querySelector("#bus-route-direction-name");
+const routeOpenEndField = document.querySelector("#route-open-end-field");
+const routeOpenEndSide = document.querySelector("#route-open-end-side");
 const stageBusRouteButton = document.querySelector("#stage-bus-route-button");
 const saveRouteChangesButton = document.querySelector("#save-route-changes-button");
 const selectionName = document.querySelector("#selection-name");
@@ -691,6 +694,18 @@ function renderRouteDraft() {
   stageBusRouteButton.disabled = segments.length === 0 || !busRouteCode.value.trim();
   saveRouteChangesButton.disabled = !editSession?.canCommit || isSaving;
   renderBusRouteDirectionChoices();
+  const existingSteps = orderedSelectedDirectionSteps();
+  const routeJunctions = new Set(routeJunctionPositions(existingSteps).map(String));
+  const draftEnd = routeDraftSteps.at(-1)?.endJunctionId;
+  routeOpenEndField.hidden = !(
+    segments.length && existingSteps.length
+      && !routeJunctions.has(String(draftEnd))
+  );
+  if (segments.length && routeReplacementStartJunctionId != null) {
+    stageBusRouteButton.textContent = routeOpenEndField.hidden
+      ? "Replace route section"
+      : "Save replacement at new terminus";
+  }
   routeDraftList.replaceChildren(
     ...segments.map((segment, index) => {
       const item = document.createElement("li");
@@ -743,7 +758,7 @@ function renderBusRouteDirectionChoices() {
     if (route) {
       heading.textContent = `Route ${route.routeCode} already exists`;
       detail.textContent = directions.length
-        ? `You are editing this route. It currently has ${directions.length} ${directions.length === 1 ? "direction" : "directions"}.`
+        ? `Editing ${directions.length} ${directions.length === 1 ? "direction" : "directions"}. Click a connected green segment to reroute, or click the first or last red segment to remove it.`
         : "You are editing this route. It does not have a direction yet.";
     } else {
       heading.textContent = `New Route ${busRouteCode.value.trim()}`;
@@ -799,20 +814,140 @@ function renderBusRouteDirectionChoices() {
   renderRouteDraftLayer();
 }
 
+function selectedRouteDirection() {
+  if (!editSession || busRouteDirection.value === "__new__") return null;
+  return (editSession.routeDirections || []).find(
+    (direction) => direction.state !== "deleted"
+      && String(direction.id) === String(busRouteDirection.value)
+  ) || null;
+}
+
+function orderedSelectedDirectionSteps() {
+  const direction = selectedRouteDirection();
+  if (!direction) return [];
+  const memberships = (editSession.routeMemberships || []).filter(
+    (membership) => membership.state !== "deleted"
+      && String(membership.routeDirectionId) === String(direction.id)
+  );
+  const remaining = memberships.map((membership) => {
+    const segment = (activeNetwork().pathSegments || []).find(
+      (item) => String(item.id) === String(membership.pathSegmentId)
+    );
+    return segment ? { membership, segment } : null;
+  }).filter(Boolean);
+  if (!remaining.length) return [];
+  const degree = new Map();
+  remaining.forEach(({ segment }) => {
+    [segmentJunctionId(segment, "start"), segmentJunctionId(segment, "end")].forEach((id) => {
+      degree.set(String(id), (degree.get(String(id)) || 0) + 1);
+    });
+  });
+  let current = direction.startJunctionId;
+  if (current == null || !degree.has(String(current))) {
+    current = [...degree.entries()].find(([, count]) => count === 1)?.[0]
+      || segmentJunctionId(remaining[0].segment, "start");
+  }
+  const ordered = [];
+  while (remaining.length) {
+    const index = remaining.findIndex(({ segment }) => [
+      segmentJunctionId(segment, "start"), segmentJunctionId(segment, "end"),
+    ].some((id) => String(id) === String(current)));
+    if (index < 0) break;
+    const item = remaining.splice(index, 1)[0];
+    const step = orientedRouteStep(item.segment, current);
+    ordered.push({ ...step, segment: item.segment, membership: item.membership });
+    current = step.endJunctionId;
+  }
+  return ordered;
+}
+
+function routeJunctionPositions(steps) {
+  if (!steps.length) return [];
+  return [steps[0].startJunctionId, ...steps.map((step) => step.endJunctionId)];
+}
+
+async function trimSelectedRouteEnd(segment) {
+  const direction = selectedRouteDirection();
+  const steps = orderedSelectedDirectionSteps();
+  const index = steps.findIndex((step) => String(step.pathSegmentId) === String(segment.id));
+  if (!direction || !steps.length || ![0, steps.length - 1].includes(index)) {
+    showMessage("Only the first or last route segment can be removed directly.");
+    return;
+  }
+  showMessage("Removing route-end segment…", "loading");
+  try {
+    let response = await fetch(
+      `/api/edit-sessions/${editSession.token}/route-directions/${encodeURIComponent(direction.id)}/segments/${encodeURIComponent(segment.id)}`,
+      { method: "DELETE" }
+    );
+    let result = await response.json();
+    if (!response.ok) throw new Error(result.error || "The route segment could not be removed.");
+    const remaining = steps.filter((_, stepIndex) => stepIndex !== index);
+    response = await fetch(
+      `/api/edit-sessions/${editSession.token}/route-directions/${encodeURIComponent(direction.id)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startJunctionId: remaining[0]?.startJunctionId ?? null,
+          endJunctionId: remaining.at(-1)?.endJunctionId ?? null,
+          customDirectionName: direction.customDirectionName,
+        }),
+      }
+    );
+    result = await response.json();
+    if (!response.ok) throw new Error(result.error || "The route endpoint could not be updated.");
+    renderSession(result);
+    showMessage("Route-end segment removed. Use Save changes to commit it.", "success");
+  } catch (error) {
+    showMessage(error.message || "The route segment could not be removed.");
+  }
+}
+
 function toggleRouteSegment(segment) {
   if (!segment || segment.state !== "saved") {
     showMessage("Only saved path segments can be added to a draft route.");
     return;
   }
   {
+    const existingSteps = orderedSelectedDirectionSteps();
+    const existingIndex = existingSteps.findIndex(
+      (step) => String(step.pathSegmentId) === String(segment.id)
+    );
+    if (!routeDraftSteps.length && existingIndex >= 0) {
+      trimSelectedRouteEnd(segment);
+      return;
+    }
+    if (routeDraftSteps.length && existingIndex >= 0) {
+      const currentEnd = routeDraftSteps.at(-1).endJunctionId;
+      const touchesCurrentEnd = [
+        segmentJunctionId(segment, "start"), segmentJunctionId(segment, "end"),
+      ].some((id) => String(id) === String(currentEnd));
+      if (touchesCurrentEnd) {
+        showMessage("Replacement rejoins the route here. Add it to the edit session, then save changes.", "success");
+        renderRouteDraft();
+      } else {
+        showMessage("Choose a route segment attached to the current replacement end.");
+      }
+      return;
+    }
     const startJunctionId = segmentJunctionId(segment, "start");
     const endJunctionId = segmentJunctionId(segment, "end");
     if (!routeDraftSteps.length) {
-      routeDraftSteps.push({
-        pathSegmentId: segment.id,
-        startJunctionId,
-        endJunctionId,
-      });
+      if (existingSteps.length) {
+        const routeJunctions = new Set(routeJunctionPositions(existingSteps).map(String));
+        const attachments = [startJunctionId, endJunctionId].filter(
+          (id) => routeJunctions.has(String(id))
+        );
+        if (!attachments.length) {
+          showMessage("Choose a segment attached to the selected route.");
+          return;
+        }
+        routeReplacementStartJunctionId = attachments[0];
+        routeDraftSteps.push(orientedRouteStep(segment, routeReplacementStartJunctionId));
+      } else {
+        routeDraftSteps.push({ pathSegmentId: segment.id, startJunctionId, endJunctionId });
+      }
     } else if (routeDraftSteps.length === 1) {
       const firstSegment = routeSegments()[0];
       const sharedJunctionId = firstSegment ? routeSharedJunction(firstSegment, segment) : null;
@@ -853,12 +988,14 @@ function toggleRouteSegment(segment) {
 
 function clearRouteDraft() {
   routeDraftSteps = [];
+  routeReplacementStartJunctionId = null;
   renderRouteDraft();
 }
 
 function undoRouteDraftStep() {
   if (!routeDraftSteps.length) return;
   routeDraftSteps.pop();
+  if (!routeDraftSteps.length) routeReplacementStartJunctionId = null;
   normalizeSingleRouteStep();
   renderRouteDraft();
 }
@@ -878,6 +1015,9 @@ function exportRouteDraftGpx() {
 
 async function stageBusRouteDraft() {
   const segments = routeSegments();
+  const originalDirectionSteps = orderedSelectedDirectionSteps();
+  const isRouteReplacement = originalDirectionSteps.length > 0
+    && routeReplacementStartJunctionId != null;
   const routeCode = busRouteCode.value.trim();
   if (!editSession || !segments.length || !routeCode || isSaving) return;
   showMessage(`Adding Route ${routeCode}…`, "loading");
@@ -925,6 +1065,71 @@ async function stageBusRouteDraft() {
       if (!direction) throw new Error("The staged route direction was not returned.");
       editSession = result;
     }
+    if (originalDirectionSteps.length && routeReplacementStartJunctionId != null) {
+      const positions = routeJunctionPositions(originalDirectionSteps).map(String);
+      const startPosition = positions.indexOf(String(routeReplacementStartJunctionId));
+      const replacementEndJunctionId = segments.at(-1).routeEndJunctionId;
+      const endPosition = positions.indexOf(String(replacementEndJunctionId));
+      let removeSteps;
+      let replacementStart = originalDirectionSteps[0].startJunctionId;
+      let replacementEnd = originalDirectionSteps.at(-1).endJunctionId;
+      if (endPosition >= 0 && endPosition !== startPosition) {
+        const from = Math.min(startPosition, endPosition);
+        const to = Math.max(startPosition, endPosition);
+        removeSteps = originalDirectionSteps.slice(from, to);
+      } else if (routeOpenEndSide.value === "start") {
+        removeSteps = originalDirectionSteps.slice(0, startPosition);
+        replacementStart = replacementEndJunctionId;
+      } else {
+        removeSteps = originalDirectionSteps.slice(startPosition);
+        replacementEnd = replacementEndJunctionId;
+      }
+      for (const step of removeSteps) {
+        response = await fetch(
+          `/api/edit-sessions/${editSession.token}/route-directions/${encodeURIComponent(direction.id)}/segments/${encodeURIComponent(step.pathSegmentId)}`,
+          { method: "DELETE" }
+        );
+        result = await response.json();
+        if (!response.ok) throw new Error(result.error || "An old route segment could not be removed.");
+      }
+      if (endPosition < 0) {
+        response = await fetch(
+          `/api/edit-sessions/${editSession.token}/route-directions/${encodeURIComponent(direction.id)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              startJunctionId: replacementStart,
+              endJunctionId: replacementEnd,
+              customDirectionName: direction.customDirectionName,
+            }),
+          }
+        );
+        result = await response.json();
+        if (!response.ok) throw new Error(result.error || "The new route terminus could not be saved.");
+        const terminus = (result.network?.junctions || []).find(
+          (junction) => String(junction.id) === String(replacementEndJunctionId)
+        );
+        if (terminus) {
+          response = await fetch(
+            `/api/edit-sessions/${editSession.token}/junctions/${encodeURIComponent(terminus.id)}/metadata`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                metadata: {
+                  ...(terminus.metadata || {}),
+                  place_type: "route_terminus",
+                  protected: true,
+                },
+              }),
+            }
+          );
+          result = await response.json();
+          if (!response.ok) throw new Error(result.error || "The new Route Terminus could not be protected.");
+        }
+      }
+    }
     for (const segment of segments) {
       const traversal = String(segment.routeStartJunctionId) === String(segmentJunctionId(segment, "start"))
         ? "start_to_end"
@@ -942,9 +1147,16 @@ async function stageBusRouteDraft() {
     }
     renderSession(result);
     routeDraftSteps = [];
-    busRoutePicker.value = "";
-    busRouteCode.value = "";
-    busRouteDirection.replaceChildren();
+    routeReplacementStartJunctionId = null;
+    if (isRouteReplacement) {
+      busRouteCode.value = routeCode;
+      busRoutePicker.value = String(route.id);
+      busRouteDirection.value = String(direction.id);
+    } else {
+      busRoutePicker.value = "";
+      busRouteCode.value = "";
+      busRouteDirection.replaceChildren();
+    }
     renderRouteDraft();
     showMessage(`Segments added to Route ${routeCode}. Use Save changes to commit them.`, "success");
   } catch (error) {
@@ -3198,7 +3410,7 @@ map.on("click", (event) => {
     stageJunctionMove(event.latlng);
     return;
   }
-  if (!isSplitPlacement) clearSelection();
+  if (activeMode === "edit" && !isSplitPlacement) clearSelection();
 });
 
 updateInterface();

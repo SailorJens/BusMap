@@ -201,6 +201,13 @@
               <span>Direction name</span>
               <input id="bus-route-direction-name" type="text" maxlength="80" placeholder="Eastbound, Westbound…" autocomplete="off">
             </label>
+            <label id="route-open-end-field" class="metadata-field" hidden>
+              <span>Unjoined replacement</span>
+              <select id="route-open-end-side">
+                <option value="end">Replace toward route end</option>
+                <option value="start">Replace toward route start</option>
+              </select>
+            </label>
             <div class="route-draft-stats">
               <strong id="route-draft-length">0 m</strong>
               <span id="route-draft-status">No route segments selected.</span>
@@ -299,6 +306,6 @@
     </main>
 
     <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
-    <script src="{{ url_for('static', filename='app.js', v='51') }}"></script>
+    <script src="{{ url_for('static', filename='app.js', v='54') }}"></script>
   </body>
 </html>
