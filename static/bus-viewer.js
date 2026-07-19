@@ -137,10 +137,28 @@ function selectSegment(segment) {
   const panel = document.querySelector("#selection");
   panel.hidden = false;
   document.querySelector("#selection-title").textContent = `Segment ${segment.id}`;
-  document.querySelector("#selection-detail").innerHTML = segment.routeMemberships.length
-    ? segment.routeMemberships.map(
-      (membership) => `<div class="membership-line"><span class="route-badge" style="background:${membership.colour || selectedRed}">${membership.routeCode}</span> ${membership.directionName || ""}</div>`
-    ).join("")
+  const membershipsByRoute = Object.values(segment.routeMemberships.reduce((groups, membership) => {
+    const key = String(membership.routeId);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(membership);
+    return groups;
+  }, {}));
+  document.querySelector("#selection-detail").innerHTML = membershipsByRoute.length
+    ? membershipsByRoute.map((memberships) => {
+      const membership = memberships[0];
+      const route = data.routes.find((item) => String(item.id) === String(membership.routeId));
+      const appliedDirectionIds = new Set(
+        memberships.map((item) => String(item.routeDirectionId))
+      );
+      const appliesToBothDirections = route?.directions.length === 2
+        && route.directions.every(
+          (direction) => appliedDirectionIds.has(String(direction.id))
+        );
+      const directionNames = appliesToBothDirections
+        ? ""
+        : [...new Set(memberships.map((item) => item.directionName).filter(Boolean))].join(" · ");
+      return `<div class="membership-line"><span class="route-badge" style="background:${membership.colour || selectedRed}">${membership.routeCode}</span>${directionNames ? ` ${directionNames}` : ""}</div>`;
+    }).join("")
     : "No bus routes use this segment.";
 }
 
