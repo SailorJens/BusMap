@@ -59,7 +59,8 @@ def test_editor_page(client):
     assert response.status_code == 200
     assert b"Bus Map Editor" in response.data
     assert b"Create route" in response.data
-    assert b"Active route direction" in response.data
+    assert b"Build route from segments" in response.data
+    assert b"Draw standalone segments" in response.data
     assert b"unpkg.com" not in response.data
 
 

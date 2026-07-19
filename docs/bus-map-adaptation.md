@@ -22,7 +22,7 @@ Route IDs are never embedded in segment JSON. Network revisions include routes, 
 
 ## Editing model
 
-Route creation, direction creation, route membership, route-aware drawing, and topology changes share one replayable session. A route drawing creates its segment and membership as one operation. Commit maps temporary junction, segment, route, and direction IDs inside one SQLite transaction.
+Network drawing is route-neutral by default. Editors can build and save the physical segment graph first, then create a route direction and traverse consecutive existing segments with the connected route brush. Route creation, direction creation, membership assignment, drawing, and topology changes still share one replayable session. Commit maps temporary junction, segment, route, and direction IDs inside one SQLite transaction.
 
 When a segment is split, child segments retain the source `direction_mode` and the derived session expands each source membership onto both children. Commit then persists the final membership set atomically.
 

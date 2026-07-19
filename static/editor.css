@@ -1,0 +1,6 @@
+.editor-map,
+.editor-map.leaflet-grab,
+.editor-map.leaflet-dragging,
+.editor-map .leaflet-interactive {
+  cursor: default !important;
+}

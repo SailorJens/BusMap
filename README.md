@@ -11,7 +11,8 @@ A Flask, SQLite, and Leaflet application for editing and viewing a simplified Lo
 - Direction-specific segment membership and traversal
 - Route highlighting and segment membership inspection
 - Interchanges derived from graph degree
-- Drawing from empty map space, an existing node, or into an existing segment
+- Route-neutral network drawing from empty map space, an existing node, or an existing segment
+- A connected route brush for assigning consecutive saved segments later
 - Segment splitting with route-membership inheritance
 - Replay-based staging, Undo, Cancel, stale-session detection, and atomic Save
 - Configurable OSM-compatible tile provider
