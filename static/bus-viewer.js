@@ -99,32 +99,19 @@ function routes() {
     button.className = `route-item${selectedRoute?.id === route.id ? " active" : ""}`;
     button.innerHTML = `<span class="route-badge" style="background:${colour(route)}">${route.routeCode}</span>`
       + `<span>${route.displayName || route.directions.map((direction) => direction.displayName || "Direction not defined").join(" · ")}</span>`;
-    button.onclick = () => {
-      selectedRoute = selectedRoute?.id === route.id ? null : route;
-      selectedDirection = null;
-      selectedSegment = null;
-      document.querySelector("#selection").hidden = true;
-      updateDirections();
-      render();
-      routes();
-      if (selectedRoute) fitRoute(route);
-    };
+    button.onclick = () => selectRoute(route, true);
     list.append(button);
   }
 }
 
-function fitRoute(route) {
-  const ids = new Set(data.routeMemberships
-    .filter((membership) => selectedDirection
-      ? String(membership.routeDirectionId) === String(selectedDirection)
-      : route.directions.some(
-        (direction) => String(direction.id) === String(membership.routeDirectionId)
-      ))
-    .map((membership) => String(membership.pathSegmentId)));
-  const points = data.pathSegments
-    .filter((segment) => ids.has(String(segment.id)))
-    .flatMap((segment) => segment.geometry.map((point) => [point[1], point[0]]));
-  if (points.length) map.fitBounds(points, { padding: [30, 30] });
+function selectRoute(route, toggle = false) {
+  selectedRoute = toggle && selectedRoute?.id === route.id ? null : route;
+  selectedDirection = null;
+  selectedSegment = null;
+  document.querySelector("#selection").hidden = true;
+  updateDirections();
+  render();
+  routes();
 }
 
 function selectSegment(segment) {
@@ -157,9 +144,17 @@ function selectSegment(segment) {
       const directionNames = appliesToBothDirections
         ? ""
         : [...new Set(memberships.map((item) => item.directionName).filter(Boolean))].join(" · ");
-      return `<div class="membership-line"><span class="route-badge" style="background:${membership.colour || selectedRed}">${membership.routeCode}</span>${directionNames ? ` ${directionNames}` : ""}</div>`;
+      return `<div class="membership-line"><button type="button" class="route-badge segment-route-button" data-route-id="${membership.routeId}" style="background:${membership.colour || selectedRed}">${membership.routeCode}</button>${directionNames ? ` ${directionNames}` : ""}</div>`;
     }).join("")
     : "No bus routes use this segment.";
+  panel.querySelectorAll(".segment-route-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      const route = data.routes.find(
+        (item) => String(item.id) === String(button.dataset.routeId)
+      );
+      if (route) selectRoute(route);
+    });
+  });
 }
 
 function clearSelection() {
@@ -177,7 +172,6 @@ document.querySelector("#route-search").oninput = routes;
 document.querySelector("#direction-filter").onchange = (event) => {
   selectedDirection = event.target.value || null;
   render();
-  if (selectedRoute) fitRoute(selectedRoute);
 };
 map.on("click", clearSelection);
 
@@ -202,7 +196,6 @@ fetch("/api/public/network").then((response) => response.json()).then((body) => 
     updateDirections();
     render();
     routes();
-    if (selectedRoute) fitRoute(selectedRoute);
   }
   if (data.bounds) {
     map.fitBounds([

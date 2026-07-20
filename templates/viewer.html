@@ -11,21 +11,22 @@
     .junction-place-badge::after { position: absolute; bottom: 1px; left: 50%; width: 10px; height: 10px; content: ""; background: rgba(255, 255, 255, .96); border-right: 2px solid #18396e; border-bottom: 2px solid #18396e; box-shadow: 2px 2px 5px rgba(20, 35, 58, .16); transform: translateX(-50%) rotate(45deg); }
     .junction-place-badge-icon { position: relative; z-index: 1; display: grid; width: 30px; height: 30px; place-items: center; color: #18396e; font-size: .78rem; font-weight: 500; line-height: 1; text-align: center; background: rgba(255, 255, 255, .96); border: 2px solid #18396e; border-radius: 999px; box-shadow: 0 2px 9px rgba(20, 35, 58, .32); }
     .junction-place-badge-icon span { transform: translateY(-1px); }
+    .segment-route-button { width: auto; border: 0; cursor: pointer; }
   </style>
 </head>
 <body>
   <main class="bus-shell">
     <aside class="bus-sidebar">
       <header><span class="roundel">BUS</span><div><h1>London Bus Map</h1><p>Shared route network</p></div></header>
+      <section id="selection" class="card" hidden><h2 id="selection-title"></h2><div id="selection-detail"></div></section>
       <label class="field"><span>Find a route</span><input id="route-search" type="search" placeholder="73, 159, N73…"></label>
       <div id="route-list" class="route-list" aria-live="polite"></div>
       <label id="direction-field" class="field" hidden><span>Direction</span><select id="direction-filter"></select></label>
-      <section id="selection" class="card" hidden><h2 id="selection-title"></h2><div id="selection-detail"></div></section>
       <a class="editor-link" href="/editor">Open editor</a>
     </aside>
     <div id="map" class="bus-map" data-tile-url="{{ tile_url }}" data-attribution="{{ tile_attribution }}" data-max-zoom="{{ tile_max_zoom }}"></div>
   </main>
   <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
-  <script src="{{ url_for('static', filename='bus-viewer.js', v='4') }}"></script>
+  <script src="{{ url_for('static', filename='bus-viewer.js', v='6') }}"></script>
 </body>
 </html>
